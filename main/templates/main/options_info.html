@@ -1,0 +1,32 @@
+{% extends 'main/base.html' %}
+
+{% block title %}
+Options
+{% endblock %}
+
+{% block start %}
+
+    {% csrf_token %}
+    <div class="container">
+        <h2 class="text-center"><u>Stock Optioins Tools<br/>股票期權工具</u></h3><br>
+        <p>To display top 5 option strikes of Put/Call, and Volatility Cones of a stock</p>
+        <form action=''>
+            <label for="Symbol"> Enter Stock Code:  </label>
+            <input id="Symbol" type="text" name="q" />
+            <input type="submit" />
+        </form>
+        <p>---- Showing Chart below ----</p>
+
+
+        <p>* {{chart_msg}} *</p>
+        {% if chart_flag %}
+
+            {% for key, chart in charts.items %}
+              <li>{{key}}</li>
+                {% autoescape off %}
+                    {{chart}}
+                {% endautoescape %}
+            {% endfor %}
+        {% endif %}
+
+{% endblock start %}
