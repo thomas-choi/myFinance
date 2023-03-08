@@ -1,0 +1,21 @@
+{% extends 'main/base.html' %}
+
+{% block title %}
+Performance Reports
+{% endblock %}
+
+{% block start %}
+
+    {% csrf_token %}
+    <div class="container">
+        <h3 class="text-center"><u>Simulation P&L Reports<br/>模擬損益報告</u></h3><br>
+        <p>All stock performance report in PDF</p>
+
+        {% for item in items %}
+        <li>
+            <a href="{% url "performance" filename=item %}">{{item}}</a>
+        </li>
+        {% endfor %}
+            
+
+{% endblock start %}

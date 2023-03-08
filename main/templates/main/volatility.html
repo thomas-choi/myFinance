@@ -1,0 +1,44 @@
+{% extends 'main/base.html' %}
+
+{% block title %}
+Volatility Cones Reports
+{% endblock %}
+
+{% block start %}
+
+    {% csrf_token %}
+    <div class="container">
+        <h3 class="text-center"><u>Stock Volatility Cones Reports<br/>股票波動錐報告</u></h3><br>
+
+        <p>Current US listed Chinese Stock Volatility Cones in PDF</p>
+
+        {% for item in cn_stock_list %}
+        <li> 
+            {% with "cn-"|add:item as fpath %}
+            <a href="{% url "volatility" filename=fpath %}">{{item}}</a>
+            {% endwith %}
+        </li> 
+        {% endfor %}
+
+        <p>Current US ETF Volatility Cones in PDF</p>
+
+        {% for item in etf_list %}
+        <li> 
+            {% with "etf-"|add:item as fpath %}
+            <a href="{% url "volatility" filename=fpath %} ">{{item}}</a>
+            {% endwith %}
+        </li> 
+        {% endfor %}
+            
+        <p>Current US Stock Volatility Cones in PDF</p>
+
+        {% for item in stock_list %}
+        <li> 
+            {% with "us-"|add:item as fpath %}
+            <a href="{% url "volatility" filename=fpath %}">{{item}}</a>
+            {% endwith %}
+        </li> 
+        {% endfor %}
+
+
+{% endblock start %}

@@ -1,0 +1,29 @@
+{% extends 'main/base.html' %}
+
+{% block title %}
+HOME
+{% endblock %}
+
+{% block start %}
+
+    {% csrf_token %}
+    <div class="container">
+
+        {% if user.is_authenticated %}
+        <center><h1>welcome back {{user.username}}!</h1></center>
+        {% else %}
+        <center><h1>log in, please.</h1></center>
+        {% endif %}
+
+        <p>
+            <li><a href="{% url "reports" %}">Simulation P&L Reports 模擬損益報告</a></li>
+
+        </p>
+        <p>
+            <li>
+                <a href="{% url "volreports" %}">Stock Volatility Cones Reports 股票波動錐報告</a>
+            </li>
+            <img src="/media/VolatilityCone.png" width="120" hight="120" />
+        </p>
+
+{% endblock %}
