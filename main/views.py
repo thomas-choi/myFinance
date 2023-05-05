@@ -289,7 +289,7 @@ def options(request):
             df = pd.read_csv(path)
         else:
             df = load_eod_price(ticker, startdt, enddt)
-            df.to_csv(path, index=False)
+            # df.to_csv(path, index=False)
         if len(df) > 0:
             chart_flag = True
             df['Date'] = pd.to_datetime(df['Date'])
