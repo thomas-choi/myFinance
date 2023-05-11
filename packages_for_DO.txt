@@ -1,0 +1,10 @@
+#    python = 3.10.6
+#
+sudo apt update
+sudo apt install python3-venv python3-dev libpq-dev nginx curl
+sudo apt-get install python3-dev default-libmysqlclient-dev build-essential
+#
+#  do below if want other python version
+#
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt install python3.8 python3.8-distutils python3.8-venv

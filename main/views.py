@@ -45,8 +45,8 @@ import os
 
 # Create your views here.
 
-load_dotenv("/home/twmchoi2022/myFinData/Prod_config/Stk_eodfetch.env") #Check path for env variables
-logging.getLogger().setLevel(logging.INFO)
+load_dotenv("/home/thomas/projects/myFinData/Prod_config/Stk_eodfetch.env") #Check path for env variables
+logging.getLogger().setLevel(logging.DEBUG)
 
 windows = [30, 60, 90, 120]
 quantiles = [0.25, 0.75]
