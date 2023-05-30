@@ -44,12 +44,20 @@
 
   <!--_______________________________________________-->
 
-
+  <style>
+    .bg-stop {
+      background-color: rgb(255, 94, 0)
+    }
+    
+    .bg-reward {
+      background-color: rgb(40, 255, 208)
+    }
+  
+  </style>
 
 </head>
 
 <body class="container-fluid">
-
 
   <header class="row">
 
@@ -69,9 +77,11 @@
           <ul class="nav navbar-nav navbar-right">
             <li><a href="{% url "home" %}">Home</a></li>
             <li><a href="{% url "reports" %}">Reports</a></li>
-            <li><a href="{% url "options" %}">Options</a></li>
+            <li><a href="{% url "options" %}">Options Analysis</a></li>
 
             {% if user.is_authenticated %}
+            <li><a href="{% url "etfoptionsmon" %}">ETF Options</a></li>
+            <li><a href="{% url "optionsmon" %}">Stk Options</a></li>
             <li><a href="{% url "usstockpick" %}">US Stock</a></li>
             <li><a href="{% url "logout" %}"><span class="glyphicon glyphicon-log-out"></span> &nbsp; Logout</a></li>
             {% else %}

@@ -1,0 +1,51 @@
+{% extends 'main/base.html' %}
+
+{% block title %}
+US Stock Pick
+{% endblock %}
+
+{% block start %}
+
+    {% csrf_token %}
+
+    <div class="container">
+        <h2 class="text-center"><u>US ETF Options Monitor</u></h2><br>
+
+        <table class="table table-dark table-striped" id="stock-table">
+            <tbody>
+
+            </tbody>
+        </table>
+
+        <script>
+            var stockData = JSON.parse('{{ stock_data_json|escapejs }}');
+            var stockTable = document.querySelector('#stock-table');
+            var stockTableHead = document.createElement('thead');
+            var stockTableHeadRow = document.createElement('tr');
+            Object.keys(stockData[0]).forEach(function(key) {
+                var stockTableHeadCell = document.createElement('th');
+                stockTableHeadCell.textContent = key;
+                stockTableHeadRow.appendChild(stockTableHeadCell);
+            });
+            stockTableHead.appendChild(stockTableHeadRow);
+            stockTable.appendChild(stockTableHead);
+
+            var stockTableBody = document.querySelector('#stock-table tbody');
+            stockData.forEach(function(stock) {
+                var row = document.createElement('tr');
+                Object.keys(stock).forEach(function(key) {
+                    var cell = document.createElement('td');
+                    cell.textContent = stock[key];
+                    if ((key == "Stop%") && (parseFloat(stock[key]) < 2.0)) {
+                        cell.classList.add('bg-stop')
+                    }
+                    if ((key == "Reward%") && (parseFloat(stock[key]) > 2.0)) {
+                        cell.classList.add('bg-reward')
+                    }
+                    row.appendChild(cell);
+                });
+                stockTableBody.appendChild(row);
+            });
+        </script>
+
+{% endblock start %}

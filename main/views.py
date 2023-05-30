@@ -21,35 +21,177 @@ from plotly.offline import plot
 from statsmodels.tsa.seasonal import seasonal_decompose, STL
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
-# import plotly.io as pio
 from datetime import datetime, timedelta
-# import matplotlib.pyplot as plt
 
 from predicts.models import Predicts
 from .forms import UserRegisterForm
 from .token import account_activation_token
 from .models import Router
 from .Volatility import Volality_Cone
-from .dataUtil import load_eod_price, get_Max_Options_date, load_df_SQL
+from .dataUtil import load_eod_price, get_Max_Options_date, load_df_SQL,get_Max_date
 
 import logging
 from dotenv import load_dotenv
 from os import environ
+import numpy as np
 
-# Import mimetypes module
-# import mimetypes
-# import os module
 import os
+
+from django.http import JsonResponse
+import json
+import yfinance as yf
+
 # Import HttpResponse module
 # from django.http.response import HttpResponse
 
 # Create your views here.
 
-load_dotenv("/home/thomas/projects/myFinData/Prod_config/Stk_eodfetch.env") #Check path for env variables
-logging.getLogger().setLevel(logging.DEBUG)
+load_dotenv("C:\\Users\\thomas2.DESKTOP-F01LKSM\\localBuild\\myFinance\\main\\Stk_eodfetch.env") #Check path for env variables
+logging.getLogger().setLevel(logging.INFO)
 
 windows = [30, 60, 90, 120]
 quantiles = [0.25, 0.75]
+
+# from requests import Session
+from requests_cache import CacheMixin, SQLiteCache, CachedSession
+# from requests_ratelimiter import LimiterMixin, MemoryQueueBucket
+# from pyrate_limiter import Duration, RequestRate, Limiter
+# import requests
+import json
+import re
+
+session = CachedSession(cache_name='yfinance.cache', expire_after=300)
+
+def printJSON(jobj):
+    print('Type is: ', type(jobj))
+    for r in jobj:
+        print('R Type is: ', type(r), '\t', r)
+
+# Function to recursively convert numeric values from string to float
+def convert_numeric_values(data):
+    if isinstance(data, dict):
+        for key, value in data.items():
+            data[key] = convert_numeric_values(value)
+    elif isinstance(data, list):
+        for i in range(len(data)):
+            data[i] = convert_numeric_values(data[i])
+    elif isinstance(data, str):
+        if re.match(r'^-?\d+(?:\.\d+)?$', data):
+            print(f'detect-{data}')
+            data = float(data)
+    
+    return data
+
+# The alphavantage quote record
+# 
+# {'01. symbol': 'AAPL', '02. open': '173.3200', '03. high': '175.7700', 
+# '04. low': '173.1100', '05. price': '175.4300', '06. volume': '54834975', 
+# '07. latest trading day': '2023-05-26', '08. previous close': '172.9900', 
+# '09. change': '2.4400', '10. change percent': '1.4105%'}
+
+# api_key = '4P43WO24ONUD80YU'
+
+# def getCurrentQuote(ticker):
+#     # doc url: https://www.alphavantage.co/documentation/
+#     url = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={symbol}&apikey={api_key}"
+    
+#     try:
+#         response = requests.get(url)
+#         data = response.json()
+        
+#         # Check if the API call was successful
+#         if 'Global Quote' in data:
+#             stock_data = data['Global Quote']
+#             print(stock_data)
+#             stock_data = convert_numeric_values(stock_data)
+#             return stock_data
+#         else:
+#             print("Error: Unable to retrieve stock prices.")
+#             return None
+#     except requests.exceptions.RequestException as e:
+#         print("Error: ", e)
+#         return None
+
+def getOptions(ticker, PnC, strike, expiration):
+    asset = yf.Ticker(ticker, session=session)
+    opts = asset.option_chain(expiration)
+    pclose = 0.0
+    histdata = asset.history()
+    if len(histdata)>0:
+        pclose = asset.history().iloc[-1].Close
+    if PnC == 'P':
+        op = opts.puts[opts.puts['strike'] == strike]
+        # print(opts.puts)
+    else:
+        op = opts.calls[opts.calls['strike'] == strike]
+        # print(opts.calls)
+    pclose = float("{:.2f}".format(pclose))
+    return op.head(1).reset_index(), pclose
+
+def getStopPercent(sym, stop, last, op_type):
+    if op_type == 'P':
+        stopperc =  (last-stop)/last
+    else:
+        stopperc = (stop-last)/last
+    res = round(stopperc * 100,1)
+    print(f'{sym} - {stop} - {op_type} - {last} - {stopperc} -> {res}')
+    return res
+    
+def etfoptionsmon(request):
+    # maxDate = get_Max_date('Trading.ETF_Options')
+    # df = load_df_SQL(f'select Date,Type, Trend, Symbol,Expiration,PnC,L_Strike,H_Strike,Entry,Target,Stop from Trading.ETF_Options where date = \'{maxDate}\';')
+    df = load_df_SQL(f'call Trading.sp_etf_trades;')
+    print(df.head(2))
+    df['Date'] = df['Date'].astype(str)
+    df['Expiration'] = df['Expiration'].astype(str)
+    df['Stop%'] = np.nan
+    df['O-Price'] = np.nan
+    df['Reward%'] = np.nan
+    df['PClose'] = np.nan
+    for ix, row in df.iterrows():
+        if pd.isnull(row.L_Strike):
+            op, pclose = getOptions(row.Symbol, row.PnC, row.H_Strike, row.Expiration)
+            if len(op)>0:
+                df.at[ix, 'O-Price'] = op.iloc[0].bid
+            df.at[ix, 'PClose'] = pclose
+            df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, pclose, row.PnC)
+    df['Reward%'] = round(df['O-Price']/df['H_Strike']*100, 2)
+
+    js_str = df.to_json(orient='records')
+    stock_data = json.loads(js_str)
+    # printJSON(stock_data)
+    return render(request, 'main/etfoptionsmon.html', {'stock_data_json': json.dumps(stock_data)})
+
+def optionsmon(request):
+    # maxDate = get_Max_date('Trading.Stock_Options')
+    # df = load_df_SQL(f'select Symbol,Expiration,Strike from Trading.Stock_Options where date = \'{maxDate}\';')
+    # df = load_df_SQL(f'select Date,Symbol,Expiration,PnC,Strike,Entry1,Entry2,Target,Stop from Trading.Stock_Options where date = \'{maxDate}\';')
+    df = load_df_SQL(f'call Trading.sp_stock_trades;')
+    print(df.info())
+    df['Date'] = df['Date'].astype(str)
+    df['Expiration'] = df['Expiration'].astype(str)
+    df['Stop%'] = np.nan
+    df['O-Price'] = np.nan
+    df['Reward%'] = np.nan
+    df['PClose'] = np.nan
+    for ix, row in df.iterrows():
+        op, pclose = getOptions(row.Symbol, row.PnC, row.Strike, row.Expiration)
+        if len(op)>0:
+            df.at[ix, 'O-Price'] = op.iloc[0].bid
+        df.at[ix, 'PClose'] = pclose
+        df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, pclose, row.PnC)
+    df['Reward%'] = round(df['O-Price']/df['Strike']*100, 2)
+    # stock_data = [
+    #     {'Symbol':'AAPL','status':'Active','Expiration':'2023-06-01','Strike': 150.0, 'Price':0.0, 'R/M':0.0},
+    #     {'Symbol':'AMZN','status':'Inactive','Expiration':'2023-06-01','Strike': 3500.0, 'Price':0.0, 'R/M':0.0},
+    #     {"Symbol":'GOOG','status':'Active','Expiration':'2023-06-01','Strike': 2500.0, 'Price':0.0, 'R/M':0.0},
+    # ]
+    # printJSON(stock_data)
+    # print('==========')
+    js_str = df.to_json(orient='records')
+    stock_data = json.loads(js_str)
+    # printJSON(stock_data)
+    return render(request, 'main/optionsmon.html', {'stock_data_json': json.dumps(stock_data)})
 
 def go_DC_SLT(decomp, STL, titles, h, w):
     fig = make_subplots(rows=4, cols=1, row_heights =[0.39, 0.11, 0.39, 0.11], shared_xaxes=True,
@@ -334,6 +476,7 @@ def pyscript(request):
 
 def usstockpick(response):
     plist = Predicts.objects.all()
+    print('plist type is ', type(plist))
     for item in plist:
         print(item.__str__())
     return render(response, "main/usstockpick.html", {'plist':plist})
