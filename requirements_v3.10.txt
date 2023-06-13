@@ -18,3 +18,4 @@ yfinance==0.2.4
 requests-cache==1.0.1
 # requests-ratelimiter==0.4.0
 # pyrate-limiter==2.10.0
+kafka-python==2.0.2

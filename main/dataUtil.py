@@ -7,9 +7,16 @@ from datetime import datetime, timedelta
 import pytz
 import time
 import sshtunnel
+import pandas as pd
+from cache_pandas import cache_to_csv
 
+_cache_time = 60*60*24      # cache for 1 day
 dbconn = None
 __sTunnel = None
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+print(f'BASE_DIR is : {BASE_DIR}')
+_cache_path = os.path.join(BASE_DIR, 'main', 'data')
+print(f'Cache Path is : {_cache_path}')
 
 def setDBSSH():
     global __sTunnel
@@ -121,6 +128,15 @@ def load_df_SQL(query):
     except Exception as e:
         logging.error("Exception occurred at load_df_SQL(np.linspace)", exc_info=True)
 
+# @cache_to_csv(lambda mkt: os.path.join(_cache_path, f'{mkt}_trade.csv'), refresh_time=_cache_time) 
+def load_df_Trade(mkt, query):
+    return load_df_SQL(query)
+
+# @cache_to_csv(lambda ticker: os.path.join(_cache_path, f'{ticker}_strike.csv'), refresh_time=_cache_time) 
+def load_df_Strike(ticker, query):
+    return load_df_SQL(query)
+
+
 def StoreEOD(eoddata, DBn, TBLn):
     try:
         logging.info(f'StoreEOD size: {len(eoddata)} in table:{TBLn} on DB:{DBn}')
@@ -131,9 +147,18 @@ def StoreEOD(eoddata, DBn, TBLn):
     except Exception as e:
         logging.error("Exception occurred", exc_info=True)
 
+_pathname = ""
+@cache_to_csv(_pathname, refresh_time=_cache_time) 
+def load_df_SQL_cache(query):
+    return load_df_SQL(query)
 
 def load_eod_price(ticker, start, end):
     DB = environ.get("DBMKTDATA")
     TBL = environ.get("TBLDLYPRICE")
     query = f"SELECT * from {DB}.{TBL} where symbol = \'{ticker}\' and Date >= \'{start}\' and Date <= \'{end}\' order by Date;"
+    st = start.strftime('%Y-%m-%d')
+    dt = end.strftime('%Y-%m-%d')
+    _pathname = os.path.join(_cache_path, f'{ticker}_{st}_{dt}.csv')
+    print('load eod price label is : ', _pathname)
     return load_df_SQL(query)
+

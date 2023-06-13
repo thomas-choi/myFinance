@@ -28,12 +28,16 @@ from .forms import UserRegisterForm
 from .token import account_activation_token
 from .models import Router
 from .Volatility import Volality_Cone
-from .dataUtil import load_eod_price, get_Max_Options_date, load_df_SQL,get_Max_date
+# from .dataUtil import load_eod_price, get_Max_Options_date, load_df_SQL,get_Max_date
+from .DDSClient import DDSServer
+from main import dataUtil
 
 import logging
 from dotenv import load_dotenv
 from os import environ
 import numpy as np
+from scipy.ndimage import gaussian_filter
+from scipy.signal import medfilt
 
 import os
 
@@ -138,22 +142,24 @@ def getStopPercent(sym, stop, last, op_type):
     return res
     
 def etfoptionsmon(request):
-    # maxDate = get_Max_date('Trading.ETF_Options')
-    # df = load_df_SQL(f'select Date,Type, Trend, Symbol,Expiration,PnC,L_Strike,H_Strike,Entry,Target,Stop from Trading.ETF_Options where date = \'{maxDate}\';')
-    df = load_df_SQL(f'call Trading.sp_etf_trades;')
+    # df = load_df_SQL(f'call Trading.sp_etf_trades;')
+    df = dataUtil.load_df_Trade('ETF', f'call Trading.sp_etf_trades;')
     print(df.head(2))
     df['Date'] = df['Date'].astype(str)
     df['Expiration'] = df['Expiration'].astype(str)
     df['Stop%'] = np.nan
     df['O-Price'] = np.nan
     df['Reward%'] = np.nan
-    df['PClose'] = np.nan
+    df['Last'] = np.nan
     for ix, row in df.iterrows():
         if pd.isnull(row.L_Strike):
             op, pclose = getOptions(row.Symbol, row.PnC, row.H_Strike, row.Expiration)
+            rec = DDSServer.snapshot(row.Symbol)
+            if rec['header'] != 'error':
+                pclose = float(rec['137'])
             if len(op)>0:
                 df.at[ix, 'O-Price'] = op.iloc[0].bid
-            df.at[ix, 'PClose'] = pclose
+            df.at[ix, 'Last'] = pclose
             df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, pclose, row.PnC)
     df['Reward%'] = round(df['O-Price']/df['H_Strike']*100, 2)
 
@@ -163,10 +169,8 @@ def etfoptionsmon(request):
     return render(request, 'main/etfoptionsmon.html', {'stock_data_json': json.dumps(stock_data)})
 
 def optionsmon(request):
-    # maxDate = get_Max_date('Trading.Stock_Options')
-    # df = load_df_SQL(f'select Symbol,Expiration,Strike from Trading.Stock_Options where date = \'{maxDate}\';')
-    # df = load_df_SQL(f'select Date,Symbol,Expiration,PnC,Strike,Entry1,Entry2,Target,Stop from Trading.Stock_Options where date = \'{maxDate}\';')
-    df = load_df_SQL(f'call Trading.sp_stock_trades;')
+    # df = load_df_SQL(f'call Trading.sp_stock_trades;')
+    df = dataUtil.load_df_Trade('STK', f'call Trading.sp_stock_trades;')
     print(df.info())
     df['Date'] = df['Date'].astype(str)
     df['Expiration'] = df['Expiration'].astype(str)
@@ -176,59 +180,56 @@ def optionsmon(request):
     df['PClose'] = np.nan
     for ix, row in df.iterrows():
         op, pclose = getOptions(row.Symbol, row.PnC, row.Strike, row.Expiration)
+        rec = DDSServer.snapshot(row.Symbol)
+        if rec['header'] != 'error':
+            pclose = float(rec['last'])
         if len(op)>0:
             df.at[ix, 'O-Price'] = op.iloc[0].bid
         df.at[ix, 'PClose'] = pclose
         df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, pclose, row.PnC)
     df['Reward%'] = round(df['O-Price']/df['Strike']*100, 2)
-    # stock_data = [
-    #     {'Symbol':'AAPL','status':'Active','Expiration':'2023-06-01','Strike': 150.0, 'Price':0.0, 'R/M':0.0},
-    #     {'Symbol':'AMZN','status':'Inactive','Expiration':'2023-06-01','Strike': 3500.0, 'Price':0.0, 'R/M':0.0},
-    #     {"Symbol":'GOOG','status':'Active','Expiration':'2023-06-01','Strike': 2500.0, 'Price':0.0, 'R/M':0.0},
-    # ]
-    # printJSON(stock_data)
-    # print('==========')
     js_str = df.to_json(orient='records')
     stock_data = json.loads(js_str)
     # printJSON(stock_data)
     return render(request, 'main/optionsmon.html', {'stock_data_json': json.dumps(stock_data)})
 
 def go_DC_SLT(decomp, STL, titles, h, w):
-    fig = make_subplots(rows=4, cols=1, row_heights =[0.39, 0.11, 0.39, 0.11], shared_xaxes=True,
+    # fig = make_subplots(rows=4, cols=1, row_heights =[0.39, 0.11, 0.39, 0.11], shared_xaxes=True,
+    fig = make_subplots(rows=2, cols=1, row_heights =[0.7, 0.3], shared_xaxes=True,
                         subplot_titles=titles,
                         vertical_spacing=0.02)
 
-    ser = decomp.trend
-    fig.add_trace(
-        go.Scatter(x=ser.index, y=ser.values, name="Decomp Trend"),
-        row=1, col=1
-    )
-    ser = decomp.observed
-    fig.add_trace(
-        go.Scatter(x=ser.index, y=ser.values, name="Decomp Close"),
-        row=1, col=1
-    )
-    ser = decomp.seasonal
-    fig.add_trace(
-        go.Scatter(x=ser.index, y=ser.values, name="Decomp Seasonal"),
-        row=2, col=1
-    )
+    # ser = decomp.trend
+    # fig.add_trace(
+    #     go.Scatter(x=ser.index, y=ser.values, name="Decomp Trend"),
+    #     row=1, col=1
+    # )
+    # ser = decomp.observed
+    # fig.add_trace(
+    #     go.Scatter(x=ser.index, y=ser.values, name="Decomp Close"),
+    #     row=1, col=1
+    # )
+    # ser = decomp.seasonal
+    # fig.add_trace(
+    #     go.Scatter(x=ser.index, y=ser.values, name="Decomp Seasonal"),
+    #     row=2, col=1
+    # )
     ser = STL.trend
     fig.add_trace(
         go.Scatter(x=ser.index, y=ser.values, name="STL Trend"),
-        row=3, col=1
+        row=1, col=1
     )
     ser = STL.observed
     fig.add_trace(
         go.Scatter(x=ser.index, y=ser.values, name="STL Close"),
-        row=3, col=1
+        row=1, col=1
     )
     ser = STL.seasonal
     fig.add_trace(
         go.Scatter(x=ser.index, y=ser.values, name="STL Seasonal"),
-        row=4, col=1
+        row=2, col=1
     )
-    fig.update_layout(height=h, width=w)
+    # fig.update_layout(height=h, width=w)
     return fig
 
 def go_decomposit(decomp, titles, h, w):
@@ -284,11 +285,82 @@ def Plot_Vol_Cone(symbol, data, startdt, enddt, win):
     fig = go.Figure(data=data, layout=layout)
     return fig
 
-def OptStrikes(df, title, cStrikeList, pStrikeList):
+def strike_str(id, row):
+    r = '{} {}({})-{}'.format(id, row['strike'],row['OptionType'],row['OI'])
+    return r
+
+def Trend_slow_fast(indf, title):
     marksize=8
+    DFsize = 130
+    indf['sma5'] = indf['Close'].rolling(5).mean()
+    indf['sma20'] = indf['Close'].rolling(20).mean()
+    indf['gf'] = gaussian_filter(indf['Close'], sigma=1)
+    indf['med'] = medfilt(indf['Close'], 5)
+    indf['gfsma5'] = indf['gf'].rolling(5).mean()
+    indf['gfsma20'] = indf['gf'].rolling(20).mean()
+
+    df=indf[-DFsize:]
+    fig = make_subplots(rows=2, cols=1, 
+                        vertical_spacing=0.02, shared_xaxes =True)
+
+    fig.add_trace(
+        go.Scatter(x=df['Date'], y=df['sma5'], name="SMA 5", line=dict(width=2, dash='dash', color="rgb(255,50,50)")),
+        row=1, col=1
+    )
+    fig.add_trace(
+        go.Scatter(x=df['Date'], y=df['sma20'], name="SMA 20", line=dict(width=2, dash='dash', color='green')),
+        row=1, col=1
+    )
+    fig.add_trace(
+        go.Scatter(x=df['Date'], y=df['Close'], name="PClose", line=dict(width=2)),
+        row=1, col=1
+    )
+    fig.add_trace(
+        go.Scatter(x=df['Date'], y=df['gfsma5'], name="SMA 5-gf", line=dict(width=3, dash='dash', color="rgb(255,50,50)")),
+        row=2, col=1
+    )
+    fig.add_trace(
+        go.Scatter(x=df['Date'], y=df['gfsma20'], name="SMA 20-gf", line=dict(width=3, dash='dash', color='green')),
+        row=2, col=1
+    )
+    fig.add_trace(
+        go.Scatter(x=df['Date'], y=df['gf'], name="Gaussian", line=dict(width=2)),
+        row=2, col=1
+    )
+    # fig.add_trace(
+    #     go.Scatter(x=df['Date'], y=df['Close'], name="PClose", line=dict(width=4)),
+    #     row=2, col=1
+    # )
+    # fig.add_trace(
+    #     go.Scatter(x=df['Date'], y=df['med'], name="Median", line=dict(width=1)),
+    #     row=3, col=1
+    # )
+    # fig.add_trace(
+    #     go.Scatter(x=df['Date'], y=df['Close'], name="PClose", line=dict(width=4)),
+    #     row=3, col=1
+    # )
+    # fig.add_trace(
+    #     go.Candlestick(x=df['Date'],
+    #                 open=df['Open'],
+    #                 high=df['High'],
+    #                 low=df['Low'],
+    #                 close=df['Close']),
+    #     row=3, col=1
+    # )
+    fig.update_layout(height=900)# , width=w)
+    return fig
+
+def Trend_slow_fast_orig(indf, title):
+    marksize=8
+    DFsize = 130
+    indf['sma5'] = indf['Close'].rolling(5).mean()
+    indf['sma20'] = indf['Close'].rolling(20).mean()
+       
+    df=indf[-DFsize:]
+    print(df.head(10))
     layout = dict(title_text=title, title_x=0.5,
-                     width=900,
-                     height=700,
+                     width=1300,
+                     height=600,
                      margin=dict(l=30,r=30,b=30,t=50),
                      paper_bgcolor="LightSteelBlue",
                      xaxis_rangeslider_visible=False)
@@ -298,19 +370,39 @@ def OptStrikes(df, title, cStrikeList, pStrikeList):
                     high=df['High'],
                     low=df['Low'],
                     close=df['Close']))
-    g_data.append(go.Scatter(x=[df.Date.iloc[0], df.Date.iloc[-1]], y=[cStrikeList[0],cStrikeList[0]], name=f"+1 {cStrikeList[0]} CALL",
+    g_data.append(go.Scatter(x=df['Date'], y=df['sma5'], name="SMA 5", line=dict(width=3, color="rgb(50,150,200)")))
+    g_data.append(go.Scatter(x=df['Date'], y=df['sma20'], name="SMA 20", line=dict(width=3, color='rgb(170,200,50)')))
+    fig = go.Figure(data=g_data, layout=layout)
+
+    return fig
+
+def OptStrikes(df, title, cStrikeList, pStrikeList):
+    marksize=8
+    layout = dict(title_text=title, title_x=0.5,
+                     width=900,
+                     height=600,
+                     margin=dict(l=30,r=30,b=30,t=50),
+                     paper_bgcolor="LightSteelBlue",
+                     xaxis_rangeslider_visible=False)
+    g_data=[]
+    g_data.append(go.Candlestick(x=df['Date'],
+                    open=df['Open'],
+                    high=df['High'],
+                    low=df['Low'],
+                    close=df['Close']))
+    g_data.append(go.Scatter(x=[df.Date.iloc[0], df.Date.iloc[-1]], y=[cStrikeList.iloc[0].strike,cStrikeList.iloc[0].strike], name=strike_str("+1", cStrikeList.iloc[0]),
                         mode="lines+markers", line=dict(width=5, color="green"),
                         marker=dict(symbol="circle", size=marksize)))
     for i in range(1, len(cStrikeList)):
-        g_data.append(go.Scatter(x=[df.Date.iloc[0], df.Date.iloc[-1]], y=[cStrikeList[i],cStrikeList[i]], name=f"+{i+1} {cStrikeList[i]} CALL",
+        g_data.append(go.Scatter(x=[df.Date.iloc[0], df.Date.iloc[-1]], y=[cStrikeList.iloc[i].strike,cStrikeList.iloc[i].strike], name=strike_str(f"+{i+1}", cStrikeList.iloc[i]),
                             mode="lines+markers", line=dict(width=1, dash="dash", color="green"),
                             marker=dict(symbol="circle", size=marksize)))
 
-    g_data.append(go.Scatter(x=[df.Date.iloc[0], df.Date.iloc[-1]], y=[pStrikeList[0],pStrikeList[0]], name=f"-1 {pStrikeList[0]} PUT",
+    g_data.append(go.Scatter(x=[df.Date.iloc[0], df.Date.iloc[-1]], y=[pStrikeList.iloc[0].strike,pStrikeList.iloc[0].strike], name=strike_str("-1", pStrikeList.iloc[0]),
                         mode="lines+markers", line=dict(width=5, color="red"),
                         marker=dict(symbol="circle", size=marksize)))
     for i in range(1, len(cStrikeList)):
-        g_data.append(go.Scatter(x=[df.Date.iloc[0], df.Date.iloc[-1]], y=[pStrikeList[i],pStrikeList[i]], name=f"-{i+1} {pStrikeList[i]} PUT",
+        g_data.append(go.Scatter(x=[df.Date.iloc[0], df.Date.iloc[-1]], y=[pStrikeList.iloc[i].strike,pStrikeList.iloc[i].strike], name=strike_str(f"-{i+1}",pStrikeList.iloc[i]),
                             mode="lines+markers", line=dict(width=1, dash="dash", color="red"),
                             marker=dict(symbol="circle", size=marksize)))
 
@@ -321,7 +413,7 @@ def OptStrikes(df, title, cStrikeList, pStrikeList):
 def OptStrikes_old(df, title, cStrikeList, pStrikeList):
     layout = dict(title_text=title, title_x=0.5,
                      width=800,
-                     height=700,
+                     height=600,
                      margin=dict(l=30,r=30,b=30,t=50),
                      paper_bgcolor="LightSteelBlue",
                      xaxis_rangeslider_visible=False)
@@ -361,22 +453,13 @@ def ConvertWeekly(inDF):
     return df
 
 def ProcessTickerOpChart(weeklyDF, ticker, stk_num=3):
-    DBMKTDATA=environ.get("DBMKTDATA")
-    TBLOPTCHAIN=environ.get("TBLOPTCHAIN")
-    maxDate, sec = get_Max_Options_date(f'{DBMKTDATA}.{TBLOPTCHAIN}', symbol=ticker)
-    print(f'MaxDate: {maxDate}, Section:{sec}')
-    query=f"SELECT * FROM {DBMKTDATA}.{TBLOPTCHAIN} where UnderlyingSymbol = \'{ticker}\' and \
-    Date=\'{maxDate}\' and section = \'{sec}\' and strike < UnderlyingPrice and OptionType = \'put\' order by openInterest desc \
-    limit {stk_num};"
-    print(query)
-    putDF = load_df_SQL(query)
-    putDF.head()
-    Cquery=f"SELECT * FROM {DBMKTDATA}.{TBLOPTCHAIN} where UnderlyingSymbol = \'{ticker}\' and \
-    Date=\'{maxDate}\' and section = \'{sec}\' and strike > UnderlyingPrice and OptionType = \'call\' order by openInterest desc \
-    limit {stk_num};"
-    print(Cquery)
-    callDF = load_df_SQL(Cquery)
-    CallS, PutS = callDF.strike.values, putDF.strike.values
+    limit = 5
+    df = dataUtil.load_df_Strike(ticker, f'call GlobalMarketData.max_options_strike(\'{ticker}\', {limit});')
+    # df = DU.load_df_SQL(f'call GlobalMarketData.max_options_strike(\'{ticker}\', {limit});')
+    print(df)
+
+    CallS = df[df['OptionType'] == 'call']
+    PutS = df[df['OptionType'] == 'put']
     print(CallS, PutS)
     title = f'{ticker} top {stk_num} strikes-Weekly'
     return OptStrikes(weeklyDF.reset_index(), title, CallS, PutS)
@@ -416,7 +499,6 @@ def volreports(response):
     return render(response, "main/volatility.html", context)
 
 def options(request):
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     ticker = request.GET.get('q')
     print(f'index({ticker})')
     enddt = datetime.now().date() - timedelta(days = 1)
@@ -426,12 +508,8 @@ def options(request):
     chart_flag = False
     charts = dict()
     if ticker is not None:
-        path = os.path.join(BASE_DIR, 'main', 'data', f'{ticker}.csv')
-        if os.path.exists(path):
-            df = pd.read_csv(path)
-        else:
-            df = load_eod_price(ticker, startdt, enddt)
-            # df.to_csv(path, index=False)
+   
+        df = dataUtil.load_eod_price(ticker, startdt, enddt)
         if len(df) > 0:
             chart_flag = True
             df['Date'] = pd.to_datetime(df['Date'])
@@ -461,6 +539,9 @@ def options(request):
             titles=[f'{ticker} Trend vs Close in mode {dmode}', f'{dmode} Seasonal', 'Trend vs Close in STL', 'STL Seasonal']
             fig = go_DC_SLT(decomposition_results, stl_decomposition, titles, h=1200, w=1100)
             charts["Trend/Seasonal Chart"] = plot(fig, output_type="div")
+
+            fig = Trend_slow_fast(df, f'{ticker}: Trend slow/fast daily.')
+            charts["Trend slow/fast"] = plot(fig, output_type="div")
 
             msg = 'Chart is created'
         else:
