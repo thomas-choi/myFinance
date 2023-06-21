@@ -50,7 +50,8 @@ import yfinance as yf
 
 # Create your views here.
 
-load_dotenv("C:\\Users\\thomas2.DESKTOP-F01LKSM\\localBuild\\myFinance\\main\\Stk_eodfetch.env") #Check path for env variables
+load_dotenv("/home/thomas/projects/myFinData/Prod_config/Stk_eodfetch.env")
+# load_dotenv("C:\\Users\\thomas2.DESKTOP-F01LKSM\\localBuild\\myFinance\\main\\Stk_eodfetch.env") #Check path for env variables
 logging.getLogger().setLevel(logging.INFO)
 
 windows = [30, 60, 90, 120]
@@ -141,7 +142,19 @@ def getStopPercent(sym, stop, last, op_type):
     print(f'{sym} - {stop} - {op_type} - {last} - {stopperc} -> {res}')
     return res
     
+def IsOTM(last, strike, pnc):
+    if ((pnc=='P') and (last < strike)) or ((pnc =='C') and (last > strike)):
+        return True
+    else:
+        return False
+def adjValue(last, strike, pnc, oprice):
+    if pnc=='P':
+        return oprice-(strike-last)
+    else:
+        return oprice-(last-strike)
+
 def etfoptionsmon(request):
+    showCol = ['Date','Type','Trend','Symbol','Expiration','PnC','L_Strike','H_Strike','Entry','Target','Stop','Stop%','O-Price','Reward%','Last']
     # df = load_df_SQL(f'call Trading.sp_etf_trades;')
     df = dataUtil.load_df_Trade('ETF', f'call Trading.sp_etf_trades;')
     print(df.head(2))
@@ -153,15 +166,16 @@ def etfoptionsmon(request):
     df['Last'] = np.nan
     for ix, row in df.iterrows():
         if pd.isnull(row.L_Strike):
-            op, pclose = getOptions(row.Symbol, row.PnC, row.H_Strike, row.Expiration)
+            op, last = getOptions(row.Symbol, row.PnC, row.H_Strike, row.Expiration)
             rec = DDSServer.snapshot(row.Symbol)
             if rec['header'] != 'error':
-                pclose = float(rec['137'])
+                last = float(rec['137'])
             if len(op)>0:
                 df.at[ix, 'O-Price'] = op.iloc[0].bid
-            df.at[ix, 'Last'] = pclose
-            df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, pclose, row.PnC)
-    df['Reward%'] = round(df['O-Price']/df['H_Strike']*100, 2)
+            df.at[ix, 'Last'] = last
+            df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, last, row.PnC)
+    df['adj_value'] = df.apply(lambda row: adjValue(row['Last'],row['H_Strike'],row['PnC'], row['O-Price']) if IsOTM(row['Last'], row['H_Strike'], row['PnC']) else row['O-Price'], axis=1)
+    df['Reward%'] = round(df['adj_value']/df['H_Strike']*100, 2)
 
     js_str = df.to_json(orient='records')
     stock_data = json.loads(js_str)
@@ -169,6 +183,7 @@ def etfoptionsmon(request):
     return render(request, 'main/etfoptionsmon.html', {'stock_data_json': json.dumps(stock_data)})
 
 def optionsmon(request):
+    showCol = ['Date','Symbol','Expiration','PnC','Strike','Entry1','Entry2','Target','Stop','Stop%','O-Price','Reward%','Last']
     # df = load_df_SQL(f'call Trading.sp_stock_trades;')
     df = dataUtil.load_df_Trade('STK', f'call Trading.sp_stock_trades;')
     print(df.info())
@@ -177,17 +192,18 @@ def optionsmon(request):
     df['Stop%'] = np.nan
     df['O-Price'] = np.nan
     df['Reward%'] = np.nan
-    df['PClose'] = np.nan
+    df['Last'] = np.nan
     for ix, row in df.iterrows():
-        op, pclose = getOptions(row.Symbol, row.PnC, row.Strike, row.Expiration)
+        op, last = getOptions(row.Symbol, row.PnC, row.Strike, row.Expiration)
         rec = DDSServer.snapshot(row.Symbol)
         if rec['header'] != 'error':
-            pclose = float(rec['last'])
+            last = float(rec['last'])
         if len(op)>0:
             df.at[ix, 'O-Price'] = op.iloc[0].bid
-        df.at[ix, 'PClose'] = pclose
-        df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, pclose, row.PnC)
-    df['Reward%'] = round(df['O-Price']/df['Strike']*100, 2)
+        df.at[ix, 'Last'] = last
+        df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, last, row.PnC)
+    df['adj_value'] = df.apply(lambda row: adjValue(row['Last'],row['Strike'],row['PnC'], row['O-Price']) if IsOTM(row['Last'], row['Strike'], row['PnC']) else row['O-Price'], axis=1)
+    df['Reward%'] = round(df['adj_value']/df['Strike']*100, 2)
     js_str = df.to_json(orient='records')
     stock_data = json.loads(js_str)
     # printJSON(stock_data)
