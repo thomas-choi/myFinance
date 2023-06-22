@@ -29,7 +29,7 @@ from .token import account_activation_token
 from .models import Router
 from .Volatility import Volality_Cone
 # from .dataUtil import load_eod_price, get_Max_Options_date, load_df_SQL,get_Max_date
-from .DDSClient import DDSServer
+from .DDSClient import *
 from main import dataUtil
 
 import logging
@@ -164,6 +164,7 @@ def etfoptionsmon(request):
     df['O-Price'] = np.nan
     df['Reward%'] = np.nan
     df['Last'] = np.nan
+    DDSServer = TCPClient(defaultIP, defaultPort)
     for ix, row in df.iterrows():
         if pd.isnull(row.L_Strike):
             op, last = getOptions(row.Symbol, row.PnC, row.H_Strike, row.Expiration)
@@ -193,6 +194,7 @@ def optionsmon(request):
     df['O-Price'] = np.nan
     df['Reward%'] = np.nan
     df['Last'] = np.nan
+    DDSServer = TCPClient(defaultIP, defaultPort)
     for ix, row in df.iterrows():
         op, last = getOptions(row.Symbol, row.PnC, row.Strike, row.Expiration)
         rec = DDSServer.snapshot(row.Symbol)
