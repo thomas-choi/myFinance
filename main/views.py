@@ -23,13 +23,17 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
+# print(f"Name: {__name__}")
+# print(f"Package: {__package__}")
+
 from predicts.models import Predicts
 from .forms import UserRegisterForm
 from .token import account_activation_token
 from .models import Router
 from .Volatility import Volality_Cone
 # from .dataUtil import load_eod_price, get_Max_Options_date, load_df_SQL,get_Max_date
-from .DDSClient import DDSServer
+# from .DDSClient import DDSServer
+from .DDSClient import *
 from main import dataUtil
 
 import logging
@@ -164,6 +168,7 @@ def etfoptionsmon(request):
     df['O-Price'] = np.nan
     df['Reward%'] = np.nan
     df['Last'] = np.nan
+    DDSServer = TCPClient(defaultIP, defaultPort)
     for ix, row in df.iterrows():
         if pd.isnull(row.L_Strike):
             op, last = getOptions(row.Symbol, row.PnC, row.H_Strike, row.Expiration)
@@ -193,6 +198,7 @@ def optionsmon(request):
     df['O-Price'] = np.nan
     df['Reward%'] = np.nan
     df['Last'] = np.nan
+    DDSServer = TCPClient(defaultIP, defaultPort)
     for ix, row in df.iterrows():
         op, last = getOptions(row.Symbol, row.PnC, row.Strike, row.Expiration)
         rec = DDSServer.snapshot(row.Symbol)
@@ -210,42 +216,42 @@ def optionsmon(request):
     return render(request, 'main/optionsmon.html', {'stock_data_json': json.dumps(stock_data)})
 
 def go_DC_SLT(decomp, STL, titles, h, w):
-    # fig = make_subplots(rows=4, cols=1, row_heights =[0.39, 0.11, 0.39, 0.11], shared_xaxes=True,
-    fig = make_subplots(rows=2, cols=1, row_heights =[0.7, 0.3], shared_xaxes=True,
+    fig = make_subplots(rows=4, cols=1, row_heights =[0.35, 0.15, 0.35, 0.15], shared_xaxes=True,
+    # fig = make_subplots(rows=2, cols=1, row_heights =[0.7, 0.3], shared_xaxes=True,
                         subplot_titles=titles,
                         vertical_spacing=0.02)
 
-    # ser = decomp.trend
-    # fig.add_trace(
-    #     go.Scatter(x=ser.index, y=ser.values, name="Decomp Trend"),
-    #     row=1, col=1
-    # )
-    # ser = decomp.observed
-    # fig.add_trace(
-    #     go.Scatter(x=ser.index, y=ser.values, name="Decomp Close"),
-    #     row=1, col=1
-    # )
-    # ser = decomp.seasonal
-    # fig.add_trace(
-    #     go.Scatter(x=ser.index, y=ser.values, name="Decomp Seasonal"),
-    #     row=2, col=1
-    # )
+    ser = decomp.trend
+    fig.add_trace(
+        go.Scatter(x=ser.index, y=ser.values, name="Decomp Trend"),
+        row=1, col=1
+    )
+    ser = decomp.observed
+    fig.add_trace(
+        go.Scatter(x=ser.index, y=ser.values, name="Decomp Close"),
+        row=1, col=1
+    )
+    ser = decomp.seasonal
+    fig.add_trace(
+        go.Scatter(x=ser.index, y=ser.values, name="Decomp Seasonal"),
+        row=2, col=1
+    )
     ser = STL.trend
     fig.add_trace(
         go.Scatter(x=ser.index, y=ser.values, name="STL Trend"),
-        row=1, col=1
+        row=3, col=1
     )
     ser = STL.observed
     fig.add_trace(
         go.Scatter(x=ser.index, y=ser.values, name="STL Close"),
-        row=1, col=1
+        row=3, col=1
     )
     ser = STL.seasonal
     fig.add_trace(
         go.Scatter(x=ser.index, y=ser.values, name="STL Seasonal"),
-        row=2, col=1
+        row=4, col=1
     )
-    # fig.update_layout(height=h, width=w)
+    fig.update_layout(height=h, width=w)
     return fig
 
 def go_decomposit(decomp, titles, h, w):
@@ -305,7 +311,7 @@ def strike_str(id, row):
     r = '{} {}({})-{}'.format(id, row['strike'],row['OptionType'],row['OI'])
     return r
 
-def Trend_slow_fast(indf, title):
+def Trend_slow_fast(indf, title, h, w):
     marksize=8
     DFsize = 130
     indf['sma5'] = indf['Close'].rolling(5).mean()
@@ -363,7 +369,7 @@ def Trend_slow_fast(indf, title):
     #                 close=df['Close']),
     #     row=3, col=1
     # )
-    fig.update_layout(height=900)# , width=w)
+    fig.update_layout(height=h, width=w)
     return fig
 
 def Trend_slow_fast_orig(indf, title):
@@ -543,20 +549,31 @@ def options(request):
             cone_fig = Plot_Vol_Cone(ticker, ydyDF, startdt, enddt, windows)
             charts["Option Cones Chart"] = plot(cone_fig, output_type="div")
 
-            ddf = pd.DataFrame()
-            ddf[ticker] = wkDF["AdjClose"]
+            # ddfo = pd.DataFrame()
+            # ddfo[ticker] = wkDF["AdjClose"]
+            # print('old head: ', ddfo.head(2))
+            # print('old Index: ', ddfo.index)
 
+            # plot for last 60 days
+            dailydf = df[len(df)-88:-1]
+            print('new head: ', dailydf.head(2))
+            print('new tail: ', dailydf.tail(2))
+            
+            dataset = pd.DataFrame()
+            dataset[ticker] = dailydf.reset_index()["AdjClose"]
+            print('data list: ', dataset)
             dmode = "additive"
             decomposition_results = seasonal_decompose(
-                ddf[ticker],
-                model=dmode
+                dataset,
+                model=dmode,
+                period=22
             )
-            stl_decomposition = STL(ddf[ticker]).fit()
+            stl_decomposition = STL(dataset, period=22).fit()
             titles=[f'{ticker} Trend vs Close in mode {dmode}', f'{dmode} Seasonal', 'Trend vs Close in STL', 'STL Seasonal']
-            fig = go_DC_SLT(decomposition_results, stl_decomposition, titles, h=1200, w=1100)
+            fig = go_DC_SLT(decomposition_results, stl_decomposition, titles, h=1000, w=1000)
             charts["Trend/Seasonal Chart"] = plot(fig, output_type="div")
 
-            fig = Trend_slow_fast(df, f'{ticker}: Trend slow/fast daily.')
+            fig = Trend_slow_fast(dailydf, f'{ticker}: Trend slow/fast daily.', h=1000, w=1000)
             charts["Trend slow/fast"] = plot(fig, output_type="div")
 
             msg = 'Chart is created'
