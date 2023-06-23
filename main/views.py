@@ -32,8 +32,7 @@ from .token import account_activation_token
 from .models import Router
 from .Volatility import Volality_Cone
 # from .dataUtil import load_eod_price, get_Max_Options_date, load_df_SQL,get_Max_date
-# from .DDSClient import DDSServer
-from .DDSClient import *
+from .DDSClient import DDSServer
 from main import dataUtil
 
 import logging
