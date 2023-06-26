@@ -157,16 +157,18 @@ def adjValue(last, strike, pnc, oprice):
         return oprice-(last-strike)
 
 def etfoptionsmon(request):
-    showCol = ['Date','Type','Trend','Symbol','Expiration','PnC','L_Strike','H_Strike','Entry','Target','Stop','Stop%','O-Price','Reward%','Last']
+    showCol = ['Date','Type','Trend','Symbol','Expiration','PnC','L_Strike','H_Strike','Entry','Target','Stop','Stop%','OPrice','Reward%','Last']
     # df = load_df_SQL(f'call Trading.sp_etf_trades;')
     df = dataUtil.load_df_Trade('ETF', f'call Trading.sp_etf_trades;')
     print(df.head(2))
     df['Date'] = df['Date'].astype(str)
     df['Expiration'] = df['Expiration'].astype(str)
     df['Stop%'] = np.nan
-    df['O-Price'] = np.nan
+    df['OPrice'] = np.nan
     df['Reward%'] = np.nan
     df['Last'] = np.nan
+    df['adjOPrice'] = np.nan
+    df['AdjReward%'] = np.nan
     DDSServer = TCPClient(defaultIP, defaultPort)
     for ix, row in df.iterrows():
         if pd.isnull(row.L_Strike):
@@ -175,11 +177,12 @@ def etfoptionsmon(request):
             if rec['header'] != 'error':
                 last = float(rec['137'])
             if len(op)>0:
-                df.at[ix, 'O-Price'] = op.iloc[0].bid
+                df.at[ix, 'OPrice'] = op.iloc[0].bid
             df.at[ix, 'Last'] = last
             df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, last, row.PnC)
-    df['adj_value'] = df.apply(lambda row: adjValue(row['Last'],row['H_Strike'],row['PnC'], row['O-Price']) if IsOTM(row['Last'], row['H_Strike'], row['PnC']) else row['O-Price'], axis=1)
-    df['Reward%'] = round(df['adj_value']/df['H_Strike']*100, 2)
+    df['adjOPrice'] = df.apply(lambda row: adjValue(row['Last'],row['H_Strike'],row['PnC'], row['OPrice']) if IsOTM(row['Last'], row['H_Strike'], row['PnC']) else row['OPrice'], axis=1)
+    df['AdjReward%'] = round(df['adjOPrice']/df['H_Strike']*100, 2)
+    df['Reward%'] = round(df['OPrice']/df['H_Strike']*100, 2)
 
     js_str = df.to_json(orient='records')
     stock_data = json.loads(js_str)
@@ -187,16 +190,18 @@ def etfoptionsmon(request):
     return render(request, 'main/etfoptionsmon.html', {'stock_data_json': json.dumps(stock_data)})
 
 def optionsmon(request):
-    showCol = ['Date','Symbol','Expiration','PnC','Strike','Entry1','Entry2','Target','Stop','Stop%','O-Price','Reward%','Last']
+    showCol = ['Date','Symbol','Expiration','PnC','Strike','Entry1','Entry2','Target','Stop','Stop%','OPrice','Reward%','Last']
     # df = load_df_SQL(f'call Trading.sp_stock_trades;')
     df = dataUtil.load_df_Trade('STK', f'call Trading.sp_stock_trades;')
     print(df.info())
     df['Date'] = df['Date'].astype(str)
     df['Expiration'] = df['Expiration'].astype(str)
     df['Stop%'] = np.nan
-    df['O-Price'] = np.nan
+    df['OPrice'] = np.nan
     df['Reward%'] = np.nan
     df['Last'] = np.nan
+    df['adjOPrice'] = np.nan
+    df['AdjReward%'] = np.nan
     DDSServer = TCPClient(defaultIP, defaultPort)
     for ix, row in df.iterrows():
         op, last = getOptions(row.Symbol, row.PnC, row.Strike, row.Expiration)
@@ -204,19 +209,20 @@ def optionsmon(request):
         if rec['header'] != 'error':
             last = float(rec['last'])
         if len(op)>0:
-            df.at[ix, 'O-Price'] = op.iloc[0].bid
+            df.at[ix, 'OPrice'] = op.iloc[0].bid
         df.at[ix, 'Last'] = last
         df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, last, row.PnC)
-    df['adj_value'] = df.apply(lambda row: adjValue(row['Last'],row['Strike'],row['PnC'], row['O-Price']) if IsOTM(row['Last'], row['Strike'], row['PnC']) else row['O-Price'], axis=1)
-    df['Reward%'] = round(df['adj_value']/df['Strike']*100, 2)
+    df['adjOPrice'] = df.apply(lambda row: adjValue(row['Last'],row['Strike'],row['PnC'], row['OPrice']) if IsOTM(row['Last'], row['Strike'], row['PnC']) else row['OPrice'], axis=1)
+    df['AdjReward%'] = round(df['adjOPrice']/df['Strike']*100, 2)
+    df['Reward%'] = round(df['OPrice']/df['Strike']*100, 2)
     js_str = df.to_json(orient='records')
     stock_data = json.loads(js_str)
     # printJSON(stock_data)
     return render(request, 'main/optionsmon.html', {'stock_data_json': json.dumps(stock_data)})
 
 def go_DC_SLT(decomp, STL, titles, h, w):
-    fig = make_subplots(rows=4, cols=1, row_heights =[0.35, 0.15, 0.35, 0.15], shared_xaxes=True,
-    # fig = make_subplots(rows=2, cols=1, row_heights =[0.7, 0.3], shared_xaxes=True,
+    # fig = make_subplots(rows=4, cols=1, row_heights =[0.35, 0.15, 0.35, 0.15], shared_xaxes=True,
+    fig = make_subplots(rows=3, cols=1, row_heights =[0.5, 0.25,0.25], shared_xaxes=True,
                         subplot_titles=titles,
                         vertical_spacing=0.02)
 
@@ -235,20 +241,20 @@ def go_DC_SLT(decomp, STL, titles, h, w):
         go.Scatter(x=ser.index, y=ser.values, name="Decomp Seasonal"),
         row=2, col=1
     )
-    ser = STL.trend
-    fig.add_trace(
-        go.Scatter(x=ser.index, y=ser.values, name="STL Trend"),
-        row=3, col=1
-    )
-    ser = STL.observed
-    fig.add_trace(
-        go.Scatter(x=ser.index, y=ser.values, name="STL Close"),
-        row=3, col=1
-    )
+    # ser = STL.trend
+    # fig.add_trace(
+    #     go.Scatter(x=ser.index, y=ser.values, name="STL Trend"),
+    #     row=3, col=1
+    # )
+    # ser = STL.observed
+    # fig.add_trace(
+    #     go.Scatter(x=ser.index, y=ser.values, name="STL Close"),
+    #     row=3, col=1
+    # )
     ser = STL.seasonal
     fig.add_trace(
         go.Scatter(x=ser.index, y=ser.values, name="STL Seasonal"),
-        row=4, col=1
+        row=3, col=1
     )
     fig.update_layout(height=h, width=w)
     return fig
@@ -519,6 +525,7 @@ def volreports(response):
     print(f'volreports:  {context}')
     return render(response, "main/volatility.html", context)
 
+
 def options(request):
     ticker = request.GET.get('q')
     print(f'index({ticker})')
@@ -558,19 +565,21 @@ def options(request):
             print('new head: ', dailydf.head(2))
             print('new tail: ', dailydf.tail(2))
             
-            dataset = pd.DataFrame()
-            dataset[ticker] = dailydf.reset_index()["AdjClose"]
-            print('data list: ', dataset)
-            dmode = "additive"
-            decomposition_results = seasonal_decompose(
-                dataset,
-                model=dmode,
-                period=22
-            )
-            stl_decomposition = STL(dataset, period=22).fit()
-            titles=[f'{ticker} Trend vs Close in mode {dmode}', f'{dmode} Seasonal', 'Trend vs Close in STL', 'STL Seasonal']
-            fig = go_DC_SLT(decomposition_results, stl_decomposition, titles, h=1000, w=1000)
-            charts["Trend/Seasonal Chart"] = plot(fig, output_type="div")
+            for sdays in [5, 22]:
+                print(sdays)
+                dataset = pd.DataFrame()
+                dataset[ticker] = dailydf.reset_index()["AdjClose"]
+                print('data list: ', dataset)
+                dmode = "additive"
+                decomposition_results = seasonal_decompose(
+                    dataset,
+                    model=dmode,
+                    period=sdays
+                )
+                stl_decomposition = STL(dataset, period=sdays).fit()
+                titles=[f'{ticker} Trend/Seasonal-{sdays} days in mode {dmode}', f'{dmode} Seasonal', 'STL Seasonal']
+                fig = go_DC_SLT(decomposition_results, stl_decomposition, titles, h=800, w=1000)
+                charts[f"Trend/Seasonal-{sdays} Chart"] = plot(fig, output_type="div")
 
             fig = Trend_slow_fast(dailydf, f'{ticker}: Trend slow/fast daily.', h=1000, w=1000)
             charts["Trend slow/fast"] = plot(fig, output_type="div")

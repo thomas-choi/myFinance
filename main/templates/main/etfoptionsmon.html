@@ -39,7 +39,16 @@ US Stock Pick
                     if ((key == "Stop%") && (parseFloat(stock[key]) < 2.0)) {
                         cell.classList.add('bg-stop')
                     }
+                    if ((key=='Entry') && (stock['PnC']=="P") && (parseFloat(stock[key]) > parseFloat(stock['Last']))) {
+                        cell.classList.add('bg-entry')
+                    } 
+                    if ((key=='Entry') && (stock['PnC']=="C") && (parseFloat(stock[key]) < parseFloat(stock['Last']))) {
+                        cell.classList.add('bg-entry')
+                    } 
                     if ((key == "Reward%") && (parseFloat(stock[key]) > 2.0)) {
+                        cell.classList.add('bg-reward')
+                    }
+                    if ((key == "AdjReward%") && (parseFloat(stock[key]) > 2.0)) {
                         cell.classList.add('bg-reward')
                     }
                     row.appendChild(cell);
