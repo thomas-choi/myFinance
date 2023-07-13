@@ -400,7 +400,6 @@ def Trend_slow_fast_orig(indf, title):
     g_data.append(go.Scatter(x=df['Date'], y=df['sma5'], name="SMA 5", line=dict(width=3, color="rgb(50,150,200)")))
     g_data.append(go.Scatter(x=df['Date'], y=df['sma20'], name="SMA 20", line=dict(width=3, color='rgb(170,200,50)')))
     fig = go.Figure(data=g_data, layout=layout)
-
     return fig
 
 def OptStrikes(df, title, cStrikeList, pStrikeList):
@@ -481,14 +480,16 @@ def ConvertWeekly(inDF):
 
 def ProcessTickerOpChart(weeklyDF, ticker, stk_num=3):
     limit = 5
-    df = dataUtil.load_df_Strike(ticker, f'call GlobalMarketData.max_options_strike(\'{ticker}\', {limit});')
-    # df = DU.load_df_SQL(f'call GlobalMarketData.max_options_strike(\'{ticker}\', {limit});')
-    print(df)
+    df = dataUtil.load_df_Strike(ticker, f'call GlobalMarketData.max_options_strike_byticker(\'{ticker}\', {limit});')
+    # df = DU.load_df_SQL(f'call GlobalMarketData.max_options_strike_byticker(\'{ticker}\', {limit});')
 
     CallS = df[df['OptionType'] == 'call']
     PutS = df[df['OptionType'] == 'put']
     print(CallS, PutS)
-    title = f'{ticker} top {stk_num} strikes-Weekly'
+    if 'lDate' in df.columns:
+        title = f'{ticker} top {stk_num} strikes-Weekly on ***{df.iloc[0].lDate}***'
+    else:
+        title = f'{ticker} top {stk_num} strikes-Weekly'
     return OptStrikes(weeklyDF.reset_index(), title, CallS, PutS)
 
 def resume(request):
