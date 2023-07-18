@@ -122,19 +122,26 @@ def convert_numeric_values(data):
 
 def getOptions(ticker, PnC, strike, expiration):
     asset = yf.Ticker(ticker, session=session)
-    opts = asset.option_chain(expiration)
     pclose = 0.0
+    op_price = 0.0
     histdata = asset.history()
     if len(histdata)>0:
         pclose = asset.history().iloc[-1].Close
-    if PnC == 'P':
-        op = opts.puts[opts.puts['strike'] == strike]
-        # print(opts.puts)
-    else:
-        op = opts.calls[opts.calls['strike'] == strike]
-        # print(opts.calls)
-    pclose = float("{:.2f}".format(pclose))
-    return op.head(1).reset_index(), pclose
+        pclose = float("{:.2f}".format(pclose))
+    try:
+        opts = asset.option_chain(expiration)
+        if PnC == 'P':
+            op = opts.puts[opts.puts['strike'] == strike]
+            # print(opts.puts)
+        else:
+            op = opts.calls[opts.calls['strike'] == strike]
+            # print(opts.calls)
+        opt = op.head(1).reset_index()
+        if len(opt)>0:
+            op_price = op.iloc[0].bid
+    except Exception as error:
+        print(error)
+    return op_price, pclose
 
 def getStopPercent(sym, stop, last, op_type):
     if op_type == 'P':
@@ -172,12 +179,11 @@ def etfoptionsmon(request):
     DDSServer = TCPClient(defaultIP, defaultPort)
     for ix, row in df.iterrows():
         if pd.isnull(row.L_Strike):
-            op, last = getOptions(row.Symbol, row.PnC, row.H_Strike, row.Expiration)
+            op_bid, last = getOptions(row.Symbol, row.PnC, row.H_Strike, row.Expiration)
             rec = DDSServer.snapshot(row.Symbol)
             if rec['header'] != 'error':
                 last = float(rec['137'])
-            if len(op)>0:
-                df.at[ix, 'OPrice'] = op.iloc[0].bid
+            df.at[ix, 'OPrice'] = op_bid
             df.at[ix, 'Last'] = last
             df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, last, row.PnC)
     df['adjOPrice'] = df.apply(lambda row: adjValue(row['Last'],row['H_Strike'],row['PnC'], row['OPrice']) if IsOTM(row['Last'], row['H_Strike'], row['PnC']) else row['OPrice'], axis=1)
@@ -191,8 +197,7 @@ def etfoptionsmon(request):
 
 def optionsmon(request):
     showCol = ['Date','Symbol','Expiration','PnC','Strike','Entry1','Entry2','Target','Stop','Stop%','OPrice','Reward%','Last']
-    # df = load_df_SQL(f'call Trading.sp_stock_trades;')
-    df = dataUtil.load_df_Trade('STK', f'call Trading.sp_stock_trades;')
+    df = dataUtil.load_df_Trade('STK', f'call Trading.sp_stock_trades_V2;')
     print(df.info())
     df['Date'] = df['Date'].astype(str)
     df['Expiration'] = df['Expiration'].astype(str)
@@ -204,12 +209,11 @@ def optionsmon(request):
     df['AdjReward%'] = np.nan
     DDSServer = TCPClient(defaultIP, defaultPort)
     for ix, row in df.iterrows():
-        op, last = getOptions(row.Symbol, row.PnC, row.Strike, row.Expiration)
+        op_bid, last = getOptions(row.Symbol, row.PnC, row.Strike, row.Expiration)
         rec = DDSServer.snapshot(row.Symbol)
         if rec['header'] != 'error':
             last = float(rec['last'])
-        if len(op)>0:
-            df.at[ix, 'OPrice'] = op.iloc[0].bid
+        df.at[ix, 'OPrice'] = op_bid
         df.at[ix, 'Last'] = last
         df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, last, row.PnC)
     df['adjOPrice'] = df.apply(lambda row: adjValue(row['Last'],row['Strike'],row['PnC'], row['OPrice']) if IsOTM(row['Last'], row['Strike'], row['PnC']) else row['OPrice'], axis=1)
