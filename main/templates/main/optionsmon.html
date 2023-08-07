@@ -35,6 +35,10 @@ US Stock Pick
                 Object.keys(stock).forEach(function(key) {
                     var cell = document.createElement('td');
                     cell.textContent = stock[key];
+                    var  stopf = parseFloat(stock['Stop']);
+                    var  lastf = parseFloat(stock['Last']);
+                    var  keyf = parseFloat(stock[key]);
+
                     if ((key == "Stop%") && (parseFloat(stock[key]) < 3.0)) {
                         cell.classList.add('bg-stop')
                     }
@@ -43,10 +47,12 @@ US Stock Pick
                     } else if ((key=='Entry2') && (stock['PnC']=="P") && (parseFloat(stock[key]) > parseFloat(stock['Last']))) {
                         cell.classList.add('bg-entry')
                     } 
-                    if ((key=='Entry2') && (stock['PnC']=="C") && (parseFloat(stock[key]) < parseFloat(stock['Last']))) {
-                        cell.classList.add('bg-entry')
-                    } else if ((key=='Entry1') && (stock['PnC']=="C") && (parseFloat(stock[key]) < parseFloat(stock['Last']))) {
-                        cell.classList.add('bg-entry')
+                    if ((stock['PnC']=="C") && (parseFloat(stock[key]) < lastf) && 
+                        (keyf < lastf) && (key=='Entry1' || key=='Entry2')) {
+                            /*
+                            console.log('Call (%s) key=%s, entry=%f, last=%f, stop=%f', stock['Symbol'], key, keyf, lastf, stopf)
+                            */
+                            cell.classList.add('bg-entry')
                     }
                     if ((key == "Reward%") && (parseFloat(stock[key]) > 2.0)) {
                         cell.classList.add('bg-reward')

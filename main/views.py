@@ -22,6 +22,7 @@ from statsmodels.tsa.seasonal import seasonal_decompose, STL
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
+from datetime import date
 
 # print(f"Name: {__name__}")
 # print(f"Package: {__package__}")
@@ -61,10 +62,10 @@ windows = [30, 60, 90, 120]
 quantiles = [0.25, 0.75]
 
 # from requests import Session
-from requests_cache import CacheMixin, SQLiteCache, CachedSession
 # from requests_ratelimiter import LimiterMixin, MemoryQueueBucket
 # from pyrate_limiter import Duration, RequestRate, Limiter
 # import requests
+from requests_cache import CacheMixin, SQLiteCache, CachedSession
 import json
 import re
 
@@ -121,26 +122,35 @@ def convert_numeric_values(data):
 #         return None
 
 def getOptions(ticker, PnC, strike, expiration):
+    exp_dt = datetime.strptime(expiration, "%Y-%m-%d")
+    today = date.today()
+    print(f'-->getOptions({ticker},{PnC},{strike},{expiration},{exp_dt},{today})')
+    pclose = -0.001
+    op_price = -0.001
+    if (today > exp_dt.date()):
+        print(f'  expiration: {exp_dt} is old\n')
+        return op_price, pclose
+    
     asset = yf.Ticker(ticker, session=session)
-    pclose = 0.0
-    op_price = 0.0
     histdata = asset.history()
     if len(histdata)>0:
         pclose = asset.history().iloc[-1].Close
         pclose = float("{:.2f}".format(pclose))
-    try:
-        opts = asset.option_chain(expiration)
-        if PnC == 'P':
-            op = opts.puts[opts.puts['strike'] == strike]
-            # print(opts.puts)
-        else:
-            op = opts.calls[opts.calls['strike'] == strike]
-            # print(opts.calls)
-        opt = op.head(1).reset_index()
-        if len(opt)>0:
-            op_price = op.iloc[0].bid
-    except Exception as error:
-        print(error)
+        try:
+            opts = asset.option_chain(expiration)
+            if PnC == 'P':
+                op = opts.puts[opts.puts['strike'] == strike]
+                # print(opts.puts)
+            else:
+                op = opts.calls[opts.calls['strike'] == strike]
+                # print(opts.calls)
+            if len(op)>0:
+                opt = op.head(1).reset_index()
+                op_price = op.iloc[0].bid
+            else:
+                print(f'{ticker} {strike}{PnC} not found\n')
+        except Exception as error:
+            print(error)
     return op_price, pclose
 
 def getStopPercent(sym, stop, last, op_type):
