@@ -20,6 +20,7 @@ import pandas as pd
 from plotly.offline import plot
 from statsmodels.tsa.seasonal import seasonal_decompose, STL
 from plotly.subplots import make_subplots
+import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 from datetime import date
@@ -186,11 +187,11 @@ def etfoptionsmon(request):
     df['Last'] = np.nan
     df['adjOPrice'] = np.nan
     df['AdjReward%'] = np.nan
-    DDSServer = TCPClient(defaultIP, defaultPort)
+    DataSVR = defaultTCPClient()
     for ix, row in df.iterrows():
         if pd.isnull(row.L_Strike):
             op_bid, last = getOptions(row.Symbol, row.PnC, row.H_Strike, row.Expiration)
-            rec = DDSServer.snapshot(row.Symbol)
+            rec = DataSVR.snapshot(row.Symbol)
             if rec['header'] != 'error':
                 last = float(rec['137'])
             df.at[ix, 'OPrice'] = op_bid
@@ -217,10 +218,10 @@ def optionsmon(request):
     df['Last'] = np.nan
     df['adjOPrice'] = np.nan
     df['AdjReward%'] = np.nan
-    DDSServer = TCPClient(defaultIP, defaultPort)
+    DataSVR = defaultTCPClient()
     for ix, row in df.iterrows():
         op_bid, last = getOptions(row.Symbol, row.PnC, row.Strike, row.Expiration)
-        rec = DDSServer.snapshot(row.Symbol)
+        rec = DataSVR.snapshot(row.Symbol)
         if rec['header'] != 'error':
             last = float(rec['last'])
         df.at[ix, 'OPrice'] = op_bid
@@ -233,6 +234,29 @@ def optionsmon(request):
     stock_data = json.loads(js_str)
     # printJSON(stock_data)
     return render(request, 'main/optionsmon.html', {'stock_data_json': json.dumps(stock_data)})
+
+def go_Option_features(ticker, eod_draw, pdraw, cdraw, h=800, w=1000):
+    fig = make_subplots(rows=4, cols=1, row_heights=[0.65,0.15,0.1,0.1],  shared_xaxes=True,
+                            subplot_titles=[f'{ticker} last vs max. Strike of OI for Put/Call',
+                                            f'{ticker} Put/Call ratio', f'{ticker}: ImpVol of max. Strike of OI for Put',
+                                            f'{ticker}: ImpVol of max. Strike of OI for Call'],
+                            vertical_spacing=0.02)
+    fig.add_trace(go.Scatter(x=eod_draw.Date.values, y=eod_draw["AdjClose"].values,mode="lines",line=dict(width=4),name="last"),
+                row=1, col=1)
+    fig.add_trace(go.Scatter(x=pdraw.Date.values, y=pdraw.MaxOIStrike.values,mode="lines",line=dict(width=1),
+                            name="max. put strike"), row=1, col=1)
+    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.MaxOIStrike.values,mode="lines",line=dict(width=1),
+                            name="max. call strike"), row=1, col=1)
+    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.PutCallratio.values,mode="lines",name="Put Call ratio"),
+                row=2, col=1)
+    fig.add_trace(go.Line(x=[cdraw.Date.values[0],cdraw.Date.values[-1]], y=[0.7,0.7],mode="lines",name="0.7 P/C ratio"),
+                row=2, col=1)
+    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=pdraw.MaxOIImpVol.values,mode="lines",name="Put MaxStrike ImpVol"),
+                row=3, col=1)
+    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.MaxOIImpVol.values,mode="lines",name="Call MaxStrike ImpVol"),
+                row=4, col=1)
+    fig.update_layout(height=h, width=w)
+    return fig
 
 def go_DC_SLT(decomp, STL, titles, h, w):
     # fig = make_subplots(rows=4, cols=1, row_heights =[0.35, 0.15, 0.35, 0.15], shared_xaxes=True,
@@ -596,8 +620,21 @@ def options(request):
                 fig = go_DC_SLT(decomposition_results, stl_decomposition, titles, h=800, w=1000)
                 charts[f"Trend/Seasonal-{sdays} Chart"] = plot(fig, output_type="div")
 
-            fig = Trend_slow_fast(dailydf, f'{ticker}: Trend slow/fast daily.', h=1000, w=1000)
-            charts["Trend slow/fast"] = plot(fig, output_type="div")
+            # fig = Trend_slow_fast(dailydf, f'{ticker}: Trend slow/fast daily.', h=1000, w=1000)
+            # charts["Trend slow/fast"] = plot(fig, output_type="div")
+            sql=f"SELECT * FROM GlobalMarketData.option_features where Symbol = \'{ticker}\'";
+            draw = dataUtil.load_df_SQL(sql)
+            draw['Date'] = pd.to_datetime(draw['Date'])
+
+            fig = px.scatter_3d(draw, x="Date", y="MaxOIStrike",z="last", color="OptionType")
+            charts[f'{ticker} OpenInterest in 3D'] = plot(fig, output_type="div")
+            pdraw = draw[draw.OptionType=="put"]
+            cdraw = draw[draw.OptionType=="call"]
+            begindt, enddt = draw['Date'].values[0], draw['Date'].values[-1]
+            logging.debug(f' options features from {begindt} to {enddt}')
+            eod_draw = df[(df['Date']>=begindt) & (df['Date']<=enddt)]
+            fig = go_Option_features(ticker=ticker, eod_draw=eod_draw, pdraw=pdraw, cdraw=cdraw, h=800, w=1000)
+            charts[" Options features summary"] = plot(fig, output_type="div")
 
             msg = 'Chart is created'
         else:
@@ -606,6 +643,7 @@ def options(request):
         return render(request, "main/options.html")
 
     context = {"chart_msg": msg, "charts": charts, "chart_flag": chart_flag}
+    print('options.context: ', context)
     return render(request, "main/options_info.html", context=context)
 
 def pyscript(request):

@@ -1,10 +1,13 @@
 import socket
+from os import environ
 
 DDSmap = {'33': 'timestamp', '4':'4', '146':'146', '37':'high', '133':'open','32':'low', '3':'last',
           '0':'ticker','73':'spread_code','22':'22','23':'currency', '21':'name','505':'ch-name',
           '20':'20', '75':'75', '24':'24', '5':'5', '31':'pclose', '30':'30', '127':'close',
-          '137':'137','17':'volume', '38':'38', '1':'bid', '16':'16', '2':'ask', '19':'19', 
+          '137':'137','17':'volume', '38':'TradeAmount', '1':'bid', '16':'bidvol', '2':'ask', '19':'askvol', 
           '25':'message', '39':'err_code'}
+
+_tcpClient = None
 
 class TCPClient:
     def __init__(self, ip_address, port):
@@ -55,10 +58,15 @@ class TCPClient:
         reply = self.send_command_b(cmd)
         return self.convertRecord(reply)
 
-defaultIP = "47.106.136.162" 
-defaultPort = 9945
 
-DDSServer = TCPClient(defaultIP, defaultPort)
+def defaultTCPClient():
+    global  _tcpClient
+
+    if _tcpClient is None:
+        defaultIP=environ.get("defaultIP")
+        defaultPort=int(environ.get("defaultPort"))
+        _tcpClient = TCPClient(defaultIP, defaultPort)
+    return _tcpClient
 
 if __name__ == '__main__':
 
