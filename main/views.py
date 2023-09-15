@@ -235,6 +235,42 @@ def optionsmon(request):
     # printJSON(stock_data)
     return render(request, 'main/optionsmon.html', {'stock_data_json': json.dumps(stock_data)})
 
+def go_Option_featuresV2(ticker, eod_draw, pdraw, cdraw, h=800, w=1000):
+    fig = make_subplots(rows=5, cols=1, row_heights=[0.4,0.4,0.08,0.06,0.06],  shared_xaxes=True,
+                            subplot_titles=f'{ticker} options',
+                            vertical_spacing=0.02)
+    fig.add_trace(go.Scatter(x=eod_draw.Date.values, y=eod_draw["AdjClose"].values,mode="lines",
+                            line=dict(width=4),name="last"), row=1, col=1)
+    fig.add_trace(go.Scatter(x=pdraw.Date.values, y=pdraw.MaxVolStrike.values,mode="lines",line=dict(dash='dash',width=1),
+                            name="max. Vol put strike"), row=1, col=1)
+    fig.add_trace(go.Scatter(x=pdraw.Date.values, y=pdraw.MaxOIStrike.values,mode="lines",line=dict(width=1),
+                            name="max. OI put strike"), row=1, col=1)
+
+    fig.add_trace(go.Scatter(x=eod_draw.Date.values, y=eod_draw["AdjClose"].values,mode="lines",
+                            line=dict(width=4),name="last"), row=2, col=1)
+    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.MaxVolStrike.values,mode="lines",line=dict(dash='dash',width=1),
+                            name="max. Vol call strike"), row=2, col=1)
+    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.MaxOIStrike.values,mode="lines",line=dict(width=1),
+                            name="max. OI call strike"), row=2, col=1)
+    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.PutCallratio.values,mode="lines",name="Put Call ratio"),
+                row=3, col=1)
+    fig.add_trace(go.Scatter(x=[cdraw.Date.values[0],cdraw.Date.values[-1]], y=[0.7,0.7],mode="lines",name="0.7 P/C ratio"),
+                row=3, col=1)
+    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=pdraw.MaxVolImpVol.values,mode="lines",name="Put MaxStrike ImpVol"),
+                row=4, col=1)
+    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.MaxVolImpVol.values,mode="lines",name="Call MaxStrike ImpVol"),
+                row=5, col=1)
+
+    fig.update_layout(
+                    dragmode='pan', 
+                    hovermode='x unified',
+                    height=1200, width=1000,
+                    margin=dict(b=20, t=0, l=0, r=40))
+
+    fig.update_traces(xaxis='x')
+
+    return fig
+
 def go_Option_features(ticker, eod_draw, pdraw, cdraw, h=800, w=1000):
     fig = make_subplots(rows=4, cols=1, row_heights=[0.65,0.15,0.1,0.1],  shared_xaxes=True,
                             subplot_titles=[f'{ticker} last vs max. Strike of OI for Put/Call',
@@ -633,7 +669,7 @@ def options(request):
             begindt, enddt = draw['Date'].values[0], draw['Date'].values[-1]
             logging.debug(f' options features from {begindt} to {enddt}')
             eod_draw = df[(df['Date']>=begindt) & (df['Date']<=enddt)]
-            fig = go_Option_features(ticker=ticker, eod_draw=eod_draw, pdraw=pdraw, cdraw=cdraw, h=800, w=1000)
+            fig = go_Option_featuresV2(ticker=ticker, eod_draw=eod_draw, pdraw=pdraw, cdraw=cdraw, h=800, w=1000)
             charts[" Options features summary"] = plot(fig, output_type="div")
 
             msg = 'Chart is created'
@@ -643,7 +679,7 @@ def options(request):
         return render(request, "main/options.html")
 
     context = {"chart_msg": msg, "charts": charts, "chart_flag": chart_flag}
-    print('options.context: ', context)
+    # print('options.context: ', context)
     return render(request, "main/options_info.html", context=context)
 
 def pyscript(request):
