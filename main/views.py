@@ -236,29 +236,37 @@ def optionsmon(request):
     return render(request, 'main/optionsmon.html', {'stock_data_json': json.dumps(stock_data)})
 
 def go_Option_featuresV2(ticker, eod_draw, pdraw, cdraw, h=800, w=1000):
-    fig = make_subplots(rows=5, cols=1, row_heights=[0.4,0.4,0.08,0.06,0.06],  shared_xaxes=True,
-                            subplot_titles=f'{ticker} options',
-                            vertical_spacing=0.02)
+    fig = make_subplots(rows=5, cols=1, row_heights=[0.35,0.35,0.1,0.1,0.1],  shared_xaxes=True,
+                    subplot_titles=(f'{ticker} Put options',f'{ticker} Call options',f'{ticker} Put/Call ratio',f'{ticker} Put ImpVol',
+                                    f'{ticker} Call ImpVol'),
+                    vertical_spacing=0.02)
     fig.add_trace(go.Scatter(x=eod_draw.Date.values, y=eod_draw["AdjClose"].values,mode="lines",
                             line=dict(width=4),name="last"), row=1, col=1)
-    fig.add_trace(go.Scatter(x=pdraw.Date.values, y=pdraw.MaxVolStrike.values,mode="lines",line=dict(dash='dash',width=1),
+    fig.add_trace(go.Scatter(x=pdraw.Date.values, y=pdraw.MaxVolStrike.values,mode="lines",line=dict(width=2,dash="dot"),
                             name="max. Vol put strike"), row=1, col=1)
     fig.add_trace(go.Scatter(x=pdraw.Date.values, y=pdraw.MaxOIStrike.values,mode="lines",line=dict(width=1),
                             name="max. OI put strike"), row=1, col=1)
 
     fig.add_trace(go.Scatter(x=eod_draw.Date.values, y=eod_draw["AdjClose"].values,mode="lines",
                             line=dict(width=4),name="last"), row=2, col=1)
-    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.MaxVolStrike.values,mode="lines",line=dict(dash='dash',width=1),
+    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.MaxVolStrike.values,mode="lines",line=dict(width=2,dash="dot"),
                             name="max. Vol call strike"), row=2, col=1)
     fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.MaxOIStrike.values,mode="lines",line=dict(width=1),
                             name="max. OI call strike"), row=2, col=1)
+    
     fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.PutCallratio.values,mode="lines",name="Put Call ratio"),
                 row=3, col=1)
-    fig.add_trace(go.Scatter(x=[cdraw.Date.values[0],cdraw.Date.values[-1]], y=[0.7,0.7],mode="lines",name="0.7 P/C ratio"),
-                row=3, col=1)
-    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=pdraw.MaxVolImpVol.values,mode="lines",name="Put MaxStrike ImpVol"),
+    fig.add_trace(go.Scatter(x=[cdraw.Date.values[0],cdraw.Date.values[-1]], y=[0.7, 0.7],mode="lines",
+                             line=dict(width=2,dash="dash",color="black"), name="0.7 P/C ratio"),row=3, col=1)
+    
+    fig.add_trace(go.Scatter(x=pdraw.Date.values, y=pdraw.MaxVolImpVol.values,mode="lines",line=dict(width=2,dash="dot"), 
+                             name="Put Max Vol Strike ImpVol"), row=4, col=1)
+    fig.add_trace(go.Scatter(x=pdraw.Date.values, y=pdraw.MaxOIImpVol.values,mode="lines",name="Put Max OI Strike ImpVol"),
                 row=4, col=1)
-    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.MaxVolImpVol.values,mode="lines",name="Call MaxStrike ImpVol"),
+    
+    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.MaxVolImpVol.values,mode="lines",line=dict(width=2,dash="dot"), 
+                             name="Call Max OI Strike ImpVol"), row=5, col=1)
+    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.MaxOIImpVol.values,mode="lines",name="Call MaxStrike ImpVol"),
                 row=5, col=1)
 
     fig.update_layout(
@@ -285,7 +293,7 @@ def go_Option_features(ticker, eod_draw, pdraw, cdraw, h=800, w=1000):
                             name="max. call strike"), row=1, col=1)
     fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.PutCallratio.values,mode="lines",name="Put Call ratio"),
                 row=2, col=1)
-    fig.add_trace(go.Line(x=[cdraw.Date.values[0],cdraw.Date.values[-1]], y=[0.7,0.7],mode="lines",name="0.7 P/C ratio"),
+    fig.add_trace(go.Scatter(x=[cdraw.Date.values[0],cdraw.Date.values[-1]], y=[0.7,0.7],mode="lines",name="0.7 P/C ratio"),
                 row=2, col=1)
     fig.add_trace(go.Scatter(x=cdraw.Date.values, y=pdraw.MaxOIImpVol.values,mode="lines",name="Put MaxStrike ImpVol"),
                 row=3, col=1)
