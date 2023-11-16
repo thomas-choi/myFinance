@@ -177,25 +177,25 @@ def adjValue(last, strike, pnc, oprice):
 def etfoptionsmon(request):
     showCol = ['Date','Type','Trend','Symbol','Expiration','PnC','L_Strike','H_Strike','Entry','Target','Stop','Stop%','OPrice','Reward%','Last']
     # df = load_df_SQL(f'call Trading.sp_etf_trades;')
-    df = dataUtil.load_df_Trade('ETF', f'call Trading.sp_etf_trades;')
+    df = dataUtil.load_df_Trade('ETF', f'call Trading.sp_etf_trades_v2;')
     print(df.head(2))
     df['Date'] = df['Date'].astype(str)
     df['Expiration'] = df['Expiration'].astype(str)
     df['Stop%'] = np.nan
     df['OPrice'] = np.nan
     df['Reward%'] = np.nan
-    df['Last'] = np.nan
+    # df['Last'] = np.nan
     df['adjOPrice'] = np.nan
     df['AdjReward%'] = np.nan
-    DataSVR = defaultTCPClient()
+    # DataSVR = defaultTCPClient()
     for ix, row in df.iterrows():
         if pd.isnull(row.L_Strike):
             op_bid, last = getOptions(row.Symbol, row.PnC, row.H_Strike, row.Expiration)
-            rec = DataSVR.snapshot(row.Symbol)
-            if rec['header'] != 'error':
-                last = float(rec['137'])
+            # rec = DataSVR.snapshot(row.Symbol)
+            # if rec['header'] != 'error':
+            #     last = float(rec['137'])
             df.at[ix, 'OPrice'] = op_bid
-            df.at[ix, 'Last'] = last
+            # df.at[ix, 'Last'] = last
             df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, last, row.PnC)
     df['adjOPrice'] = df.apply(lambda row: adjValue(row['Last'],row['H_Strike'],row['PnC'], row['OPrice']) if IsOTM(row['Last'], row['H_Strike'], row['PnC']) else row['OPrice'], axis=1)
     df['AdjReward%'] = round(df['adjOPrice']/df['H_Strike']*100, 2)
@@ -207,25 +207,26 @@ def etfoptionsmon(request):
     return render(request, 'main/etfoptionsmon.html', {'stock_data_json': json.dumps(stock_data)})
 
 def optionsmon(request):
+    # messages.info(request, f'Start Process Data!')
     showCol = ['Date','Symbol','Expiration','PnC','Strike','Entry1','Entry2','Target','Stop','Stop%','OPrice','Reward%','Last']
-    df = dataUtil.load_df_Trade('STK', f'call Trading.sp_stock_trades_V2;')
+    df = dataUtil.load_df_Trade('STK', f'call Trading.sp_stock_trades_V3;')
     print(df.info())
     df['Date'] = df['Date'].astype(str)
     df['Expiration'] = df['Expiration'].astype(str)
     df['Stop%'] = np.nan
     df['OPrice'] = np.nan
     df['Reward%'] = np.nan
-    df['Last'] = np.nan
+    # df['Last'] = np.nan
     df['adjOPrice'] = np.nan
     df['AdjReward%'] = np.nan
-    DataSVR = defaultTCPClient()
+    # DataSVR = defaultTCPClient()
     for ix, row in df.iterrows():
         op_bid, last = getOptions(row.Symbol, row.PnC, row.Strike, row.Expiration)
-        rec = DataSVR.snapshot(row.Symbol)
-        if rec['header'] != 'error':
-            last = float(rec['last'])
+        # rec = DataSVR.snapshot(row.Symbol)
+        # if rec['header'] != 'error':
+        #     last = float(rec['last'])
         df.at[ix, 'OPrice'] = op_bid
-        df.at[ix, 'Last'] = last
+        # df.at[ix, 'Last'] = last
         df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, last, row.PnC)
     df['adjOPrice'] = df.apply(lambda row: adjValue(row['Last'],row['Strike'],row['PnC'], row['OPrice']) if IsOTM(row['Last'], row['Strike'], row['PnC']) else row['OPrice'], axis=1)
     df['AdjReward%'] = round(df['adjOPrice']/df['Strike']*100, 2)
@@ -233,12 +234,13 @@ def optionsmon(request):
     js_str = df.to_json(orient='records')
     stock_data = json.loads(js_str)
     # printJSON(stock_data)
+    # messages.info(request, f'Retreive data done!')
     return render(request, 'main/optionsmon.html', {'stock_data_json': json.dumps(stock_data)})
 
 def go_Option_featuresV2(ticker, eod_draw, pdraw, cdraw, h=800, w=1000):
-    fig = make_subplots(rows=5, cols=1, row_heights=[0.35,0.35,0.1,0.1,0.1],  shared_xaxes=True,
-                    subplot_titles=(f'{ticker} Put options',f'{ticker} Call options',f'{ticker} Put/Call ratio',f'{ticker} Put ImpVol',
-                                    f'{ticker} Call ImpVol'),
+    fig = make_subplots(rows=5, cols=1, row_heights=[0.35, 0.1,0.35,0.1,0.1],  shared_xaxes=True,
+                    subplot_titles=(f'{ticker} Put options',f'{ticker} Put ImpVol',f'{ticker} Call options',
+                                    f'{ticker} Call ImpVol',f'{ticker} Put/Call ratio'),
                     vertical_spacing=0.02)
     fig.add_trace(go.Scatter(x=eod_draw.Date.values, y=eod_draw["AdjClose"].values,mode="lines",
                             line=dict(width=4),name="last"), row=1, col=1)
@@ -247,27 +249,27 @@ def go_Option_featuresV2(ticker, eod_draw, pdraw, cdraw, h=800, w=1000):
     fig.add_trace(go.Scatter(x=pdraw.Date.values, y=pdraw.MaxOIStrike.values,mode="lines",line=dict(width=1),
                             name="max. OI put strike"), row=1, col=1)
 
-    fig.add_trace(go.Scatter(x=eod_draw.Date.values, y=eod_draw["AdjClose"].values,mode="lines",
-                            line=dict(width=4),name="last"), row=2, col=1)
-    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.MaxVolStrike.values,mode="lines",line=dict(width=2,dash="dot"),
-                            name="max. Vol call strike"), row=2, col=1)
-    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.MaxOIStrike.values,mode="lines",line=dict(width=1),
-                            name="max. OI call strike"), row=2, col=1)
-    
-    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.PutCallratio.values,mode="lines",name="Put Call ratio"),
-                row=3, col=1)
-    fig.add_trace(go.Scatter(x=[cdraw.Date.values[0],cdraw.Date.values[-1]], y=[0.7, 0.7],mode="lines",
-                             line=dict(width=2,dash="dash",color="black"), name="0.7 P/C ratio"),row=3, col=1)
-    
     fig.add_trace(go.Scatter(x=pdraw.Date.values, y=pdraw.MaxVolImpVol.values,mode="lines",line=dict(width=2,dash="dot"), 
-                             name="Put Max Vol Strike ImpVol"), row=4, col=1)
+                             name="Put Max Vol Strike ImpVol"), row=2, col=1)
     fig.add_trace(go.Scatter(x=pdraw.Date.values, y=pdraw.MaxOIImpVol.values,mode="lines",name="Put Max OI Strike ImpVol"),
-                row=4, col=1)
+                row=2, col=1)
     
+    fig.add_trace(go.Scatter(x=eod_draw.Date.values, y=eod_draw["AdjClose"].values,mode="lines",
+                            line=dict(width=4),name="last"), row=3, col=1)
+    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.MaxVolStrike.values,mode="lines",line=dict(width=2,dash="dot"),
+                            name="max. Vol call strike"), row=3, col=1)
+    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.MaxOIStrike.values,mode="lines",line=dict(width=1),
+                            name="max. OI call strike"), row=3, col=1)
+
     fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.MaxVolImpVol.values,mode="lines",line=dict(width=2,dash="dot"), 
-                             name="Call Max OI Strike ImpVol"), row=5, col=1)
+                             name="Call Max OI Strike ImpVol"), row=4, col=1)
     fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.MaxOIImpVol.values,mode="lines",name="Call MaxStrike ImpVol"),
+                row=4, col=1)
+
+    fig.add_trace(go.Scatter(x=cdraw.Date.values, y=cdraw.PutCallratio.values,mode="lines",name="Put Call ratio"),
                 row=5, col=1)
+    fig.add_trace(go.Scatter(x=[cdraw.Date.values[0],cdraw.Date.values[-1]], y=[0.7, 0.7],mode="lines",
+                             line=dict(width=2,dash="dash",color="black"), name="0.7 P/C ratio"),row=5, col=1)
 
     fig.update_layout(
                     dragmode='pan', 
@@ -509,7 +511,7 @@ def OptStrikes(df, title, cStrikeList, pStrikeList):
     g_data.append(go.Scatter(x=[df.Date.iloc[0], df.Date.iloc[-1]], y=[pStrikeList.iloc[0].strike,pStrikeList.iloc[0].strike], name=strike_str("-1", pStrikeList.iloc[0]),
                         mode="lines+markers", line=dict(width=5, color="red"),
                         marker=dict(symbol="circle", size=marksize)))
-    for i in range(1, len(cStrikeList)):
+    for i in range(1, len(pStrikeList)):
         g_data.append(go.Scatter(x=[df.Date.iloc[0], df.Date.iloc[-1]], y=[pStrikeList.iloc[i].strike,pStrikeList.iloc[i].strike], name=strike_str(f"-{i+1}",pStrikeList.iloc[i]),
                             mode="lines+markers", line=dict(width=1, dash="dash", color="red"),
                             marker=dict(symbol="circle", size=marksize)))
