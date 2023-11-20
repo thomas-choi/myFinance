@@ -175,14 +175,14 @@ def adjValue(last, strike, pnc, oprice):
         return oprice-(last-strike)
 
 def etfoptionsmon(request):
-    showCol = ['Date','Type','Trend','Symbol','Expiration','PnC','L_Strike','H_Strike','Entry','Target','Stop','Stop%','OPrice','Reward%','Last']
+    showCol = ['Date','Type','Trend','Symbol','Expiration','PnC','L_Strike','H_Strike','Entry','Target','Stop','Stop%','Last','OPrice','Reward%','adjOPrice','AdjReward%']
     # df = load_df_SQL(f'call Trading.sp_etf_trades;')
     df = dataUtil.load_df_Trade('ETF', f'call Trading.sp_etf_trades_v2;')
     print(df.head(2))
     df['Date'] = df['Date'].astype(str)
     df['Expiration'] = df['Expiration'].astype(str)
     df['Stop%'] = np.nan
-    df['OPrice'] = np.nan
+    df['OPrice'] = df['O_bid']
     df['Reward%'] = np.nan
     # df['Last'] = np.nan
     df['adjOPrice'] = np.nan
@@ -190,17 +190,18 @@ def etfoptionsmon(request):
     # DataSVR = defaultTCPClient()
     for ix, row in df.iterrows():
         if pd.isnull(row.L_Strike):
-            op_bid, last = getOptions(row.Symbol, row.PnC, row.H_Strike, row.Expiration)
+            # op_bid, last = getOptions(row.Symbol, row.PnC, row.H_Strike, row.Expiration)
             # rec = DataSVR.snapshot(row.Symbol)
             # if rec['header'] != 'error':
             #     last = float(rec['137'])
-            df.at[ix, 'OPrice'] = op_bid
+            # df.at[ix, 'OPrice'] = op_bid
             # df.at[ix, 'Last'] = last
-            df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, last, row.PnC)
+            df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, row.O_pclose, row.PnC)
     df['adjOPrice'] = df.apply(lambda row: adjValue(row['Last'],row['H_Strike'],row['PnC'], row['OPrice']) if IsOTM(row['Last'], row['H_Strike'], row['PnC']) else row['OPrice'], axis=1)
     df['AdjReward%'] = round(df['adjOPrice']/df['H_Strike']*100, 2)
     df['Reward%'] = round(df['OPrice']/df['H_Strike']*100, 2)
 
+    df = df[showCol]
     js_str = df.to_json(orient='records')
     stock_data = json.loads(js_str)
     # printJSON(stock_data)
@@ -214,23 +215,25 @@ def optionsmon(request):
     df['Date'] = df['Date'].astype(str)
     df['Expiration'] = df['Expiration'].astype(str)
     df['Stop%'] = np.nan
-    df['OPrice'] = np.nan
+    df['OPrice'] = df['O_bid']
     df['Reward%'] = np.nan
     # df['Last'] = np.nan
     df['adjOPrice'] = np.nan
     df['AdjReward%'] = np.nan
     # DataSVR = defaultTCPClient()
     for ix, row in df.iterrows():
-        op_bid, last = getOptions(row.Symbol, row.PnC, row.Strike, row.Expiration)
+        # op_bid, last = getOptions(row.Symbol, row.PnC, row.Strike, row.Expiration)
         # rec = DataSVR.snapshot(row.Symbol)
         # if rec['header'] != 'error':
         #     last = float(rec['last'])
-        df.at[ix, 'OPrice'] = op_bid
+        # df.at[ix, 'OPrice'] = op_bid
         # df.at[ix, 'Last'] = last
-        df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, last, row.PnC)
+        df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, row.O_pclose, row.PnC)
     df['adjOPrice'] = df.apply(lambda row: adjValue(row['Last'],row['Strike'],row['PnC'], row['OPrice']) if IsOTM(row['Last'], row['Strike'], row['PnC']) else row['OPrice'], axis=1)
     df['AdjReward%'] = round(df['adjOPrice']/df['Strike']*100, 2)
     df['Reward%'] = round(df['OPrice']/df['Strike']*100, 2)
+    
+    df = df[showCol]
     js_str = df.to_json(orient='records')
     stock_data = json.loads(js_str)
     # printJSON(stock_data)
