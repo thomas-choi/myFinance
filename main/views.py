@@ -209,7 +209,7 @@ def etfoptionsmon(request):
 
 def optionsmon(request):
     # messages.info(request, f'Start Process Data!')
-    showCol = ['Date','Symbol','Expiration','PnC','Strike','Entry1','Entry2','Target','Stop','Stop%','OPrice','Reward%','Last']
+    showCol = ['Date','Symbol','Expiration','PnC','Strike','Entry1','Entry2','Target','Stop','Stop%','Trade_Status','Description', 'OPrice','Reward%','Last']
     df = dataUtil.load_df_Trade('STK', f'call Trading.sp_stock_trades_V3;')
     print(df.info())
     df['Date'] = df['Date'].astype(str)
