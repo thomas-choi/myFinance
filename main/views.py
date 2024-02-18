@@ -155,10 +155,13 @@ def getOptions(ticker, PnC, strike, expiration):
     return op_price, pclose
 
 def getStopPercent(sym, stop, last, op_type):
-    if op_type == 'P':
-        stopperc =  (last-stop)/last
+    if last != 0:
+        if op_type == 'P':
+            stopperc =  (last-stop)/last
+        else:
+            stopperc = (stop-last)/last
     else:
-        stopperc = (stop-last)/last
+        stopperc = 0.0
     res = round(stopperc * 100,1)
     print(f'{sym} - {stop} - {op_type} - {last} - {stopperc} -> {res}')
     return res
