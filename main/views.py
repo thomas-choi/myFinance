@@ -199,7 +199,8 @@ def etfoptionsmon(request):
             #     last = float(rec['137'])
             # df.at[ix, 'OPrice'] = op_bid
             # df.at[ix, 'Last'] = last
-            df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, row.O_pclose, row.PnC)
+            print(f"ix:{ix}, row:{row}")
+            df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, row.Last, row.PnC)
     df['adjOPrice'] = df.apply(lambda row: adjValue(row['Last'],row['H_Strike'],row['PnC'], row['OPrice']) if IsOTM(row['Last'], row['H_Strike'], row['PnC']) else row['OPrice'], axis=1)
     df['AdjReward%'] = round(df['adjOPrice']/df['H_Strike']*100, 2)
     df['Reward%'] = round(df['OPrice']/df['H_Strike']*100, 2)
@@ -231,7 +232,8 @@ def optionsmon(request):
         #     last = float(rec['last'])
         # df.at[ix, 'OPrice'] = op_bid
         # df.at[ix, 'Last'] = last
-        df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, row.O_pclose, row.PnC)
+        print(f"ix:{ix}, row:{row}")
+        df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, row.Last, row.PnC)
     df['adjOPrice'] = df.apply(lambda row: adjValue(row['Last'],row['Strike'],row['PnC'], row['OPrice']) if IsOTM(row['Last'], row['Strike'], row['PnC']) else row['OPrice'], axis=1)
     df['AdjReward%'] = round(df['adjOPrice']/df['Strike']*100, 2)
     df['Reward%'] = round(df['OPrice']/df['Strike']*100, 2)
