@@ -578,7 +578,10 @@ def ProcessTickerOpChart(weeklyDF, ticker, stk_num=3):
     CallS = df[df['OptionType'] == 'call']
     PutS = df[df['OptionType'] == 'put']
     print(CallS, PutS)
-    if 'lDate' in df.columns:
+    if len(df)==0:
+        title = f'{ticker} has no options data'
+        return None
+    elif 'lDate' in df.columns:
         title = f'{ticker} top {stk_num} strikes-Weekly on ***{df.iloc[0].lDate}***'
     else:
         title = f'{ticker} top {stk_num} strikes-Weekly'
@@ -642,11 +645,13 @@ def options(request):
 
             ywkDF = wkDF[wkDF.index>startdt_2]
             fig = ProcessTickerOpChart(ywkDF, ticker, 5)
-            charts["Option Strikes Chart"] = plot(fig, output_type="div")
+            if fig:
+                charts["Option Strikes Chart"] = plot(fig, output_type="div")
 
             ydyDF = SDF[SDF.index>startdt_2]
-            cone_fig = Plot_Vol_Cone(ticker, ydyDF, startdt, enddt, windows)
-            charts["Option Cones Chart"] = plot(cone_fig, output_type="div")
+            if len(ydyDF)>0:
+                cone_fig = Plot_Vol_Cone(ticker, ydyDF, startdt, enddt, windows)
+                charts["Option Cones Chart"] = plot(cone_fig, output_type="div")
 
             # ddfo = pd.DataFrame()
             # ddfo[ticker] = wkDF["AdjClose"]
@@ -678,17 +683,17 @@ def options(request):
             # charts["Trend slow/fast"] = plot(fig, output_type="div")
             sql=f"SELECT * FROM GlobalMarketData.option_features where Symbol = \'{ticker}\'";
             draw = dataUtil.load_df_SQL(sql)
-            draw['Date'] = pd.to_datetime(draw['Date'])
-
-            fig = px.scatter_3d(draw, x="Date", y="MaxOIStrike",z="last", color="OptionType")
-            charts[f'{ticker} OpenInterest in 3D'] = plot(fig, output_type="div")
-            pdraw = draw[draw.OptionType=="put"]
-            cdraw = draw[draw.OptionType=="call"]
-            begindt, enddt = draw['Date'].values[0], draw['Date'].values[-1]
-            logging.debug(f' options features from {begindt} to {enddt}')
-            eod_draw = df[(df['Date']>=begindt) & (df['Date']<=enddt)]
-            fig = go_Option_featuresV2(ticker=ticker, eod_draw=eod_draw, pdraw=pdraw, cdraw=cdraw, h=800, w=1000)
-            charts[" Options features summary"] = plot(fig, output_type="div")
+            if len(draw)>0:
+                draw['Date'] = pd.to_datetime(draw['Date'])
+                fig = px.scatter_3d(draw, x="Date", y="MaxOIStrike",z="last", color="OptionType")
+                charts[f'{ticker} OpenInterest in 3D'] = plot(fig, output_type="div")
+                pdraw = draw[draw.OptionType=="put"]
+                cdraw = draw[draw.OptionType=="call"]
+                begindt, enddt = draw['Date'].values[0], draw['Date'].values[-1]
+                logging.debug(f' options features from {begindt} to {enddt}')
+                eod_draw = df[(df['Date']>=begindt) & (df['Date']<=enddt)]
+                fig = go_Option_featuresV2(ticker=ticker, eod_draw=eod_draw, pdraw=pdraw, cdraw=cdraw, h=800, w=1000)
+                charts[" Options features summary"] = plot(fig, output_type="div")
 
             msg = 'Chart is created'
         else:
