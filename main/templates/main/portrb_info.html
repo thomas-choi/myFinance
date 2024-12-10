@@ -1,0 +1,54 @@
+{% extends 'main/base.html' %}
+
+{% block title %}
+Port Rebalance
+{% endblock %}
+
+{% block start %}
+
+    {% csrf_token %}
+    <div class="container">
+        <h2 class="text-center"><u>Portfolio Rebalance<br/> </u></h3><br>
+        <p>enter portfolio name for re-balance weightings</p>
+        <form action=''>
+            <label for="Portfolio"> Enter Portfolio Name:  </label>
+            <input id="Port_id" type="text" name="q" />
+            <input type="submit" />
+        </form>
+        <p>---- Showing Table below ----</p>
+
+        <p>* {{chart_msg}} *</p>
+
+        <table class="table table-dark table-striped" id="weight-table">
+            <tbody>
+
+            </tbody>
+        </table>
+
+        <script>
+            var wData = JSON.parse('{{ weights_json|escapejs }}');
+            var wTable = document.querySelector('#weight-table');
+            var wTableHead = document.createElement('thead');
+            var wTableHeadRow = document.createElement('tr');
+            Object.keys(wData[0]).forEach(function(key) {
+                var wTableHeadCell = document.createElement('th');
+                wTableHeadCell.textContent = key;
+                wTableHeadRow.appendChild(wTableHeadCell);
+            });
+            wTableHead.appendChild(wTableHeadRow);
+            wTable.appendChild(wTableHead);
+
+            var wTableBody = document.querySelector('#weight-table tbody');
+            wData.forEach(function(stock) {
+                var row = document.createElement('tr');
+                Object.keys(stock).forEach(function(key) {
+                    var cell = document.createElement('td');
+                    cell.textContent = stock[key];
+
+                    row.appendChild(cell);
+                });
+                wTableBody.appendChild(row);
+            });
+        </script>
+
+{% endblock start %}

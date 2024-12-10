@@ -9,6 +9,7 @@ import time
 import sshtunnel
 import pandas as pd
 from cache_pandas import cache_to_csv
+import logging
 
 _cache_time = 60*60*24      # cache for 1 day
 dbconn = None
@@ -40,7 +41,7 @@ def setDBSSH():
     __sTunnel.start()
     dbpath = "mysql+pymysql://{user}:{pw}@{host}:{port}/{db}".format(host="127.0.0.1",
     db=DB, user=DBUSER, pw=DBPWD, port=__sTunnel.local_bind_port)
-    logging.info(f'setup DBengine to {dbpath}')
+    logging.debug(f'setup DBengine to {dbpath}')
     # Create SQLAlchemy engine to connect to MySQL Database
     dbconn = create_engine(dbpath)
     logging.debug(f'dbconn=>{dbconn}')
@@ -72,10 +73,10 @@ def get_DBengine():
         DBPORT = environ.get("DBPORT")
 
         dbpath = "mysql+pymysql://{user}:{pw}@{host}:{port}/{db}".format(host=hostname, db=DB, user=uname, pw=pwd,port=DBPORT)
-        logging.info(f'setup DBengine to {dbpath}')
+        logging.debug(f'setup DBengine to {dbpath}')
         # Create SQLAlchemy engine to connect to MySQL Database
         dbconn = create_engine(dbpath)
-        logging.info(f'dbconn=>{dbconn}')
+        logging.debug(f'dbconn=>{dbconn}')
     return dbconn
 
 def get_Max_date(dbntable, symbol=None):

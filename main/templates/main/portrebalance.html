@@ -1,0 +1,20 @@
+{% extends 'main/base.html' %}
+
+{% block title %}
+Options
+{% endblock %}
+
+{% block start %}
+
+    {% csrf_token %}
+    <div class="container">
+        <h2 class="text-center"><u>Portfolio Rebalance<br/> </u></h3><br>
+        <p>enter portfolio name for re-balance weightings</p>
+        <form action=''>
+            <label for="Portfolio"> Enter Portfolio Name:  </label>
+            <input id="Port_id" type="text" name="q" />
+            <input type="submit" />
+        </form>
+
+
+{% endblock start %}

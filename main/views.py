@@ -36,6 +36,7 @@ from .Volatility import Volality_Cone
 # from .dataUtil import load_eod_price, get_Max_Options_date, load_df_SQL,get_Max_date
 from .DDSClient import *
 from main import dataUtil
+from main import weights
 
 import logging
 from dotenv import load_dotenv
@@ -57,7 +58,13 @@ import yfinance as yf
 
 load_dotenv("/home/thomas/projects/myFinData/Prod_config/Stk_eodfetch.env")
 # load_dotenv("C:\\Users\\thomas2.DESKTOP-F01LKSM\\localBuild\\myFinance\\main\\Stk_eodfetch.env") #Check path for env variables
-logging.getLogger().setLevel(logging.INFO)
+
+if environ.get("myDebug") == "Debug":
+    logging.getLogger().setLevel(logging.DEBUG)
+    print("Turn on myDebug")
+else:
+    logging.getLogger().setLevel(logging.INFO)
+    print("Print logging.Info only.")
 
 windows = [30, 60, 90, 120]
 quantiles = [0.25, 0.75]
@@ -208,8 +215,9 @@ def etfoptionsmon(request):
     df = df[showCol]
     js_str = df.to_json(orient='records')
     stock_data = json.loads(js_str)
-    # printJSON(stock_data)
-    return render(request, 'main/etfoptionsmon.html', {'stock_data_json': json.dumps(stock_data)})
+    stock_json = json.dumps(stock_data)
+    logging.debug(f'stock_data_json:  {stock_json}')
+    return render(request, 'main/etfoptionsmon.html', {'stock_data_json': stock_json})
 
 def optionsmon(request):
     # messages.info(request, f'Start Process Data!')
@@ -241,9 +249,10 @@ def optionsmon(request):
     df = df[showCol]
     js_str = df.to_json(orient='records')
     stock_data = json.loads(js_str)
-    # printJSON(stock_data)
+    stock_json = json.dumps(stock_data)
+    logging.debug(f'stock_data_json:  {stock_json}')
     # messages.info(request, f'Retreive data done!')
-    return render(request, 'main/optionsmon.html', {'stock_data_json': json.dumps(stock_data)})
+    return render(request, 'main/optionsmon.html', {'stock_data_json': stock_json})
 
 def go_Option_featuresV2(ticker, eod_draw, pdraw, cdraw, h=800, w=1000):
     fig = make_subplots(rows=5, cols=1, row_heights=[0.35, 0.1,0.35,0.1,0.1],  shared_xaxes=True,
@@ -621,6 +630,29 @@ def volreports(response):
     print(f'volreports:  {context}')
     return render(response, "main/volatility.html", context)
 
+def portrebalance(request):
+    portfolio = request.GET.get('q')
+    print(f'portrebalance({portfolio})')
+    # enddt = datetime.now().date() - timedelta(days = 1)
+    # startdt = enddt - timedelta(days = 3*365)
+    # startdt_2 = (enddt - timedelta(days = 365)).strftime('%Y-%m-%d')
+    msg = 'Please enter Portfolio Name'
+    port_w_data = None
+    if portfolio is not None:
+        we_df = weights.get_json_by_record_type(dataUtil.get_DBengine(), portfolio)
+        if len(we_df)>0:
+            logging.debug(we_df)
+            msg = f'{portfolio} weights'
+            js_str = we_df.to_json(orient='records')
+            port_w_data = json.dumps(json.loads(js_str))
+        else:
+            msg = f'{portfolio} has no weighting data'
+    else:
+        return render(request, "main/portrebalance.html")
+
+    context = {"chart_msg": msg, "weights_json": port_w_data}
+    logging.debug(f'Port-Rebalance:  {context}')
+    return render(request, "main/portrb_info.html", context=context)
 
 def options(request):
     ticker = request.GET.get('q')
