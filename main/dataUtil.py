@@ -116,7 +116,7 @@ def ExecSQL(query):
         results = get_DBengine().execute(query)
         logging.info(f'number of rows execed: {results.rowcount}')
     except Exception as e:
-        logging.error("Exception occurred at load_df(np.linspace)", exc_info=True)
+        logging.error("Exception occurred at ExecSQL(np.linspace)", exc_info=True)
 
 def load_df_SQL(query):
     """

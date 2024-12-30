@@ -1,0 +1,151 @@
+<!-- rebalance/templates/weights_table.html -->
+{% extends 'main/base.html' %}
+
+{% block title %}
+New Portfolio Rebalance
+{% endblock %}
+
+<head>
+    <title>Weights by Port Name</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        /* Popup dialog styling */
+        #popupDialog {
+            display: none;
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        #popupOverlay {
+            display: none;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+    </style>
+</head>
+
+{% block start %}
+
+    {% csrf_token %}
+
+    <h1>Weights for Portfolio:{{ request.GET.pid }},     Value:{{request.GET.pvalue}}</h1>
+    <table id="weightsTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Date</th>
+                <th>Port Name</th>
+                <th>Risk Measure</th>
+                <th>Objective</th>
+                <th>Interval</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for weight in weights %}
+            <tr data-id="{{ weight.id }}">
+                <td>{{ weight.id }}</td>
+                <td>{{ weight.date }}</td>
+                <td>{{ weight.port_name }}</td>
+                <td>{{ weight.risk_mes }}</td>
+                <td>{{ weight.obj_type }}</td>
+                <td>{{ weight.int_type }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Popup dialog -->
+    <div id="popupOverlay"></div>
+    <div id="popupDialog">
+        <h2>Weights Details</h2>
+        <div id="popupId"></div>
+        <table id="popupTable">
+            <thead>
+                <tr>
+                    <th>Key</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody id="popupContent"></tbody>
+        </table>
+        <button onclick="closePopup()">Close</button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const table = document.getElementById('weightsTable');
+            const popupOverlay = document.getElementById('popupOverlay');
+            const popupDialog = document.getElementById('popupDialog');
+            const popupContent = document.getElementById('popupContent');
+            const popupId = document.getElementById('popupId');
+
+            table.addEventListener('click', function (event) {
+                const target = event.target;
+                const row = target.closest('tr');
+                
+                if (row) {
+                    const id = row.getAttribute('data-id');
+                    fetchDetails(id);
+                }
+            });
+
+            function fetchDetails(id) {
+                fetch(`/rebalance/get_weights_details/?id=${id}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        // Display the data in the popup
+                        let contentHtml = '';
+                        data.weights.forEach(item => {
+                            contentHtml += `
+                                <tr>
+                                    <td>${item[0]}</td>
+                                    <td>${item[1]}</td>
+                                </tr>
+                            `;
+                        });
+                        popupId.innerHTML = `<p>ID: ${id}</p>`;
+                        popupContent.innerHTML = contentHtml;
+                        openPopup();
+                    })
+                    .catch(error => {
+                        console.error('Error fetching details:', error);
+                    });
+            }
+
+            function openPopup() {
+                popupOverlay.style.display = 'block';
+                popupDialog.style.display = 'block';
+            }
+
+            function closePopup() {
+                popupOverlay.style.display = 'none';
+                popupDialog.style.display = 'none';
+            }
+
+            window.closePopup = closePopup;
+        });
+    </script>
+
+
+{% endblock start %}

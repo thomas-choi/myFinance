@@ -26,6 +26,7 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('rebalance/', include('rebalance.urls')),
     path('', include('main.urls')),
     path('login/', main_view.Login, name ='login'),
     path('logout/', auth.LogoutView.as_view(template_name ='main/base.html'), name ='logout'),

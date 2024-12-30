@@ -55,16 +55,17 @@ import yfinance as yf
 # from django.http.response import HttpResponse
 
 # Create your views here.
-
-load_dotenv("/home/thomas/projects/myFinData/Prod_config/Stk_eodfetch.env")
+############################################
+# load_dotenv("/home/thomas/projects/myFinData/Prod_config/Stk_eodfetch.env")
 # load_dotenv("C:\\Users\\thomas2.DESKTOP-F01LKSM\\localBuild\\myFinance\\main\\Stk_eodfetch.env") #Check path for env variables
 
-if environ.get("myDebug") == "Debug":
-    logging.getLogger().setLevel(logging.DEBUG)
-    print("Turn on myDebug")
-else:
-    logging.getLogger().setLevel(logging.INFO)
-    print("Print logging.Info only.")
+# if environ.get("myDebug") == "Debug":
+#     logging.getLogger().setLevel(logging.DEBUG)
+#     print("Turn on myDebug")
+# else:
+#     logging.getLogger().setLevel(logging.INFO)
+#     print("Print logging.Info only.")
+##################################
 
 windows = [30, 60, 90, 120]
 quantiles = [0.25, 0.75]
@@ -188,7 +189,7 @@ def etfoptionsmon(request):
     showCol = ['Date','Type','Trend','Symbol','Expiration','PnC','L_Strike','H_Strike','Entry','Target','Stop','Stop%','Last','OPrice','Reward%','adjOPrice','AdjReward%']
     # df = load_df_SQL(f'call Trading.sp_etf_trades;')
     df = dataUtil.load_df_Trade('ETF', f'call Trading.sp_etf_trades_v2;')
-    print(df.head(2))
+    logging.info(df)
     df['Date'] = df['Date'].astype(str)
     df['Expiration'] = df['Expiration'].astype(str)
     df['Stop%'] = np.nan
@@ -199,6 +200,7 @@ def etfoptionsmon(request):
     df['AdjReward%'] = np.nan
     # DataSVR = defaultTCPClient()
     for ix, row in df.iterrows():
+        logging.debug(f"ix:{ix}, row:{row}")
         if pd.isnull(row.L_Strike):
             # op_bid, last = getOptions(row.Symbol, row.PnC, row.H_Strike, row.Expiration)
             # rec = DataSVR.snapshot(row.Symbol)
@@ -206,7 +208,6 @@ def etfoptionsmon(request):
             #     last = float(rec['137'])
             # df.at[ix, 'OPrice'] = op_bid
             # df.at[ix, 'Last'] = last
-            # print(f"ix:{ix}, row:{row}")
             df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, row.Last, row.PnC)
     df['adjOPrice'] = df.apply(lambda row: adjValue(row['Last'],row['H_Strike'],row['PnC'], row['OPrice']) if IsOTM(row['Last'], row['H_Strike'], row['PnC']) else row['OPrice'], axis=1)
     df['AdjReward%'] = round(df['adjOPrice']/df['H_Strike']*100, 2)
@@ -631,8 +632,9 @@ def volreports(response):
     return render(response, "main/volatility.html", context)
 
 def portrebalance(request):
-    portfolio = request.GET.get('q')
-    print(f'portrebalance({portfolio})')
+    portfolio = request.GET.get('pid')
+    port_value = request.GET.get('pvalue')
+    print(f'portrebalance({portfolio}, {port_value})')
     # enddt = datetime.now().date() - timedelta(days = 1)
     # startdt = enddt - timedelta(days = 3*365)
     # startdt_2 = (enddt - timedelta(days = 365)).strftime('%Y-%m-%d')
@@ -653,6 +655,7 @@ def portrebalance(request):
     context = {"chart_msg": msg, "weights_json": port_w_data}
     logging.debug(f'Port-Rebalance:  {context}')
     return render(request, "main/portrb_info.html", context=context)
+
 
 def options(request):
     ticker = request.GET.get('q')

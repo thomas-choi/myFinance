@@ -1,15 +1,15 @@
 {% extends 'main/base.html' %}
 
 {% block title %}
-Options
+Rebalance/Weights
 {% endblock %}
 
 {% block start %}
 
     {% csrf_token %}
     <div class="container">
-        <h2 class="text-center"><u>Portfolio Rebalance<br/> </u></h3><br>
-        <p>enter portfolio name for re-balance weightings</p>
+        <h2 class="text-center"><u>Portfolio Weightings<br/> </u></h3><br>
+        <p>enter portfolio name </p>
         <form action=''>
             <label for="Portfolio"> ENTER:  Portfolio Name:  </label>
             <input id="Port_id" type="text" name="pid" />
