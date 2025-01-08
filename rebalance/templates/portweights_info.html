@@ -58,7 +58,7 @@ Rebalance/Weights_info
         <form action=''>
             <label for="Portfolio"> ENTER:  Portfolio Name:  </label>
             <input id="Port_id" type="text" name="pid" />
-            <label for="PortValue"> Portfolio Value:  </label>
+            <label for="PortValue"> Portfolio Value(USD):  </label>
             <input id="Port_value" type="text" name="pvalue" />
             <input type="submit" />
         </form>
@@ -106,9 +106,11 @@ Rebalance/Weights_info
                     <tr>
                         <th>Symbol</th>
                         <th>Weight</th>
-                        <th>Last</th>
-                        <th>Amount</th>
+                        <th>Last(USD)</th>
+                        <th>Amount(USD)</th>
                         <th>Shares</th>
+                        <th>Currency</th>
+                        <th>Rate</th>
                     </tr>
                 </thead>
                 <tbody id="popupContent"></tbody>
@@ -152,10 +154,12 @@ Rebalance/Weights_info
                                         <td>${item.last}</td>
                                         <td>${item.amount}</td>
                                         <td>${item.shares}</td>
+                                        <td>${item.Currency}</td>
+                                        <td>${item.rate}</td>
                                     </tr>
                                 `;
                             });
-                            popupId.innerHTML = `<p>ID: ${id}</p><p>Portfolio Value: ${port_value}</p>`;
+                            popupId.innerHTML = `<p>ID: ${id}</p><p>Portfolio Value(USD): ${port_value}</p><p>Total weight: ${data.total_w}`;
                             popupContent.innerHTML = contentHtml;
                             openPopup();
                         })
