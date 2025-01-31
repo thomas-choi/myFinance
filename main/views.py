@@ -55,25 +55,10 @@ import yfinance as yf
 # from django.http.response import HttpResponse
 
 # Create your views here.
-############################################
-# load_dotenv("/home/thomas/projects/myFinData/Prod_config/Stk_eodfetch.env")
-# load_dotenv("C:\\Users\\thomas2.DESKTOP-F01LKSM\\localBuild\\myFinance\\main\\Stk_eodfetch.env") #Check path for env variables
-
-# if environ.get("myDebug") == "Debug":
-#     logging.getLogger().setLevel(logging.DEBUG)
-#     print("Turn on myDebug")
-# else:
-#     logging.getLogger().setLevel(logging.INFO)
-#     print("Print logging.Info only.")
-##################################
 
 windows = [30, 60, 90, 120]
 quantiles = [0.25, 0.75]
 
-# from requests import Session
-# from requests_ratelimiter import LimiterMixin, MemoryQueueBucket
-# from pyrate_limiter import Duration, RequestRate, Limiter
-# import requests
 from requests_cache import CacheMixin, SQLiteCache, CachedSession
 import json
 import re
@@ -99,36 +84,6 @@ def convert_numeric_values(data):
             data = float(data)
     
     return data
-
-# The alphavantage quote record
-# 
-# {'01. symbol': 'AAPL', '02. open': '173.3200', '03. high': '175.7700', 
-# '04. low': '173.1100', '05. price': '175.4300', '06. volume': '54834975', 
-# '07. latest trading day': '2023-05-26', '08. previous close': '172.9900', 
-# '09. change': '2.4400', '10. change percent': '1.4105%'}
-
-# api_key = '4P43WO24ONUD80YU'
-
-# def getCurrentQuote(ticker):
-#     # doc url: https://www.alphavantage.co/documentation/
-#     url = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={symbol}&apikey={api_key}"
-    
-#     try:
-#         response = requests.get(url)
-#         data = response.json()
-        
-#         # Check if the API call was successful
-#         if 'Global Quote' in data:
-#             stock_data = data['Global Quote']
-#             print(stock_data)
-#             stock_data = convert_numeric_values(stock_data)
-#             return stock_data
-#         else:
-#             print("Error: Unable to retrieve stock prices.")
-#             return None
-#     except requests.exceptions.RequestException as e:
-#         print("Error: ", e)
-#         return None
 
 def getOptions(ticker, PnC, strike, expiration):
     exp_dt = datetime.strptime(expiration, "%Y-%m-%d")
@@ -414,8 +369,10 @@ def Plot_Vol_Cone(symbol, data, startdt, enddt, win):
     fig = go.Figure(data=data, layout=layout)
     return fig
 
-def strike_str(id, row):
-    r = '{} {}({})-{}'.format(id, row['strike'],row['OptionType'],row['OI'])
+def strike_str(id, row, filterName):
+    if filterName is None:
+        filterName = "OI"
+    r = '{} {}({})-{:,.0f}'.format(id, row['strike'],row['OptionType'],row[filterName])
     return r
 
 def Trend_slow_fast(indf, title, h, w):
@@ -504,7 +461,7 @@ def Trend_slow_fast_orig(indf, title):
     fig = go.Figure(data=g_data, layout=layout)
     return fig
 
-def OptStrikes(df, title, cStrikeList, pStrikeList):
+def OptStrikes(df, title, cStrikeList, pStrikeList, strikeFilterN):
     marksize=8
     layout = dict(title_text=title, title_x=0.5,
                      width=900,
@@ -518,19 +475,19 @@ def OptStrikes(df, title, cStrikeList, pStrikeList):
                     high=df['High'],
                     low=df['Low'],
                     close=df['Close']))
-    g_data.append(go.Scatter(x=[df.Date.iloc[0], df.Date.iloc[-1]], y=[cStrikeList.iloc[0].strike,cStrikeList.iloc[0].strike], name=strike_str("+1", cStrikeList.iloc[0]),
+    g_data.append(go.Scatter(x=[df.Date.iloc[0], df.Date.iloc[-1]], y=[cStrikeList.iloc[0].strike,cStrikeList.iloc[0].strike], name=strike_str("+1", cStrikeList.iloc[0], strikeFilterN),
                         mode="lines+markers", line=dict(width=5, color="green"),
                         marker=dict(symbol="circle", size=marksize)))
     for i in range(1, len(cStrikeList)):
-        g_data.append(go.Scatter(x=[df.Date.iloc[0], df.Date.iloc[-1]], y=[cStrikeList.iloc[i].strike,cStrikeList.iloc[i].strike], name=strike_str(f"+{i+1}", cStrikeList.iloc[i]),
+        g_data.append(go.Scatter(x=[df.Date.iloc[0], df.Date.iloc[-1]], y=[cStrikeList.iloc[i].strike,cStrikeList.iloc[i].strike], name=strike_str(f"+{i+1}", cStrikeList.iloc[i], strikeFilterN),
                             mode="lines+markers", line=dict(width=1, dash="dash", color="green"),
                             marker=dict(symbol="circle", size=marksize)))
 
-    g_data.append(go.Scatter(x=[df.Date.iloc[0], df.Date.iloc[-1]], y=[pStrikeList.iloc[0].strike,pStrikeList.iloc[0].strike], name=strike_str("-1", pStrikeList.iloc[0]),
+    g_data.append(go.Scatter(x=[df.Date.iloc[0], df.Date.iloc[-1]], y=[pStrikeList.iloc[0].strike,pStrikeList.iloc[0].strike], name=strike_str("-1", pStrikeList.iloc[0], strikeFilterN),
                         mode="lines+markers", line=dict(width=5, color="red"),
                         marker=dict(symbol="circle", size=marksize)))
     for i in range(1, len(pStrikeList)):
-        g_data.append(go.Scatter(x=[df.Date.iloc[0], df.Date.iloc[-1]], y=[pStrikeList.iloc[i].strike,pStrikeList.iloc[i].strike], name=strike_str(f"-{i+1}",pStrikeList.iloc[i]),
+        g_data.append(go.Scatter(x=[df.Date.iloc[0], df.Date.iloc[-1]], y=[pStrikeList.iloc[i].strike,pStrikeList.iloc[i].strike], name=strike_str(f"-{i+1}",pStrikeList.iloc[i], strikeFilterN),
                             mode="lines+markers", line=dict(width=1, dash="dash", color="red"),
                             marker=dict(symbol="circle", size=marksize)))
 
@@ -580,22 +537,70 @@ def ConvertWeekly(inDF):
     df.index = df.index - pd.tseries.frequencies.to_offset("6D")
     return df
 
-def ProcessTickerOpChart(weeklyDF, ticker, stk_num=3):
-    limit = 5
-    df = dataUtil.load_df_Strike(ticker, f'call GlobalMarketData.max_options_strike_byticker(\'{ticker}\', {limit});')
-    # df = DU.load_df_SQL(f'call GlobalMarketData.max_options_strike_byticker(\'{ticker}\', {limit});')
+def simpleTop(inDf):
+    strike_l = list(inDf['strike'].unique())
+    strike_l.sort()
+    rows = []
+    for stk in strike_l:
+        s_df = inDf[inDf['strike']==stk].reset_index()
+        oi_amount = s_df.apply(lambda row: row['lastPrice'] * row['openInterest'], axis=1)
+        # print(f"{stk} Amount : ", oi_amount)
+        totalOI = int(s_df[['openInterest']].sum())
+        totalAmt = oi_amount.sum()
+        rec = {'strike': stk, 'OptionType': s_df['OptionType'].iloc[0], 'OI': totalOI, 'lDate': s_df['Date'].iloc[0], 'Amount':totalAmt, }
+        # display(rec)
+        rows.append(rec)
+    OI_info = pd.DataFrame(rows).sort_values(by='strike', ascending=False)
+    return OI_info
+
+def strikeFilter(ticker, limit):
+    DBMKTDATA=environ.get("DBMKTDATA")
+    TBLOPTCHAIN=environ.get("TBLOPTCHAIN")
+
+    mktdate = dataUtil.get_Max_date(f'{DBMKTDATA}.{TBLOPTCHAIN}')
+    query=f"select * from {DBMKTDATA}.{TBLOPTCHAIN} where Date=\'{mktdate}\' and UnderlyingSymbol=\'{ticker}\';"
+    logging.info(f"strikeFilter.{query}")
+    i_df = dataUtil.load_df_SQL(query)
+    df = i_df[i_df['lastPrice'] > 0.05]
+    putdata = df[(df['OptionType'] == 'put') & (df['strike'] < df['UnderlyingPrice'])]
+    print("Put data size: ", len(putdata))
+    calldata = df[(df['OptionType'] == 'call') & (df['strike'] > df['UnderlyingPrice'])]
+    print("Call data size: ", len(calldata))
+    OI75 = i_df['openInterest'].quantile(0.25)
+    logging.info(f"75% : {OI75}")
+    put75 = putdata[putdata['openInterest']>OI75]
+    logging.info(f"75% Put data threshold: {len(put75)}")
+    call75 = calldata[calldata['openInterest']>OI75]
+    logging.info(f"75% Call data threshold: {len(call75)}")
+    StrikeFilter = environ.get("StrikeFilter")
+    f_put_df = simpleTop(put75).sort_values(by=StrikeFilter, ascending=False).head(limit)
+    f_call_df = simpleTop(call75).sort_values(by=StrikeFilter, ascending=False).head(limit)
+    result = pd.concat([f_call_df, f_put_df])
+    return result
+
+
+def ProcessTickerOpChart(weeklyDF, ticker, strike_limit=3):
+    StrikeFilter = environ.get("StrikeFilter")
+    if StrikeFilter is not None:
+        df = strikeFilter(ticker, strike_limit)
+        label = f'{ticker} top {strike_limit} strikes-Weekly by {StrikeFilter}'
+    else:
+        df = dataUtil.load_df_Strike(ticker, f'call GlobalMarketData.max_options_strike_byticker(\'{ticker}\', {strike_limit});')
+        label = f'{ticker} top {strike_limit} strikes-Weekly'
+    # df = DU.load_df_SQL(f'call GlobalMarketData.max_options_strike_byticker(\'{ticker}\', {strike_limit});')
 
     CallS = df[df['OptionType'] == 'call']
+    print("*** CALLS ***", CallS)
     PutS = df[df['OptionType'] == 'put']
-    print(CallS, PutS)
+    print("*** PUTS ***", PutS)
     if len(df)==0:
         title = f'{ticker} has no options data'
         return None
     elif 'lDate' in df.columns:
-        title = f'{ticker} top {stk_num} strikes-Weekly on ***{df.iloc[0].lDate}***'
+        title = f'{label} on ***{df.iloc[0].lDate}***'
     else:
-        title = f'{ticker} top {stk_num} strikes-Weekly'
-    return OptStrikes(weeklyDF.reset_index(), title, CallS, PutS)
+        title = label
+    return OptStrikes(weeklyDF.reset_index(), title, CallS, PutS, StrikeFilter)
 
 def resume(request):
     pdffile =  Router.objects.last()
