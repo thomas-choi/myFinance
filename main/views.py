@@ -39,7 +39,7 @@ from main import dataUtil
 from main import weights
 
 import logging
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 from os import environ
 import numpy as np
 from scipy.ndimage import gaussian_filter
@@ -757,6 +757,8 @@ def usstockpick(response):
 
 ########### register here #####################################
 def register(request):
+    logging.info(f"register: {request}")
+    msg="Register Form"
     if request.method == 'POST':
         form = UserRegisterForm(request.POST)# Import mimetypes module
         if form.is_valid():
@@ -771,17 +773,24 @@ def register(request):
                 'uid': urlsafe_base64_encode(force_bytes(user.pk)),
                 'token': account_activation_token.make_token(user),
             })
+            logging.info("Register Form is valid")
+            logging.debug(message)
             to_email = form.cleaned_data.get('email')
             ######################### mail system ####################################
             email = EmailMessage(
                 mail_subject, message, to=[to_email], from_email='thomas.choi@neuralmatrixllc.com'
             )
+            logging.debug(email)
             email.send()
             ##################################################################
             return HttpResponse('Please confirm your email address to complete the registration')
+        else:
+            logging.debug("Register Form is invalid.")
+            msg = form.errors.as_data()
+            logging.error(msg)
     else:
         form = UserRegisterForm()
-    return render(request, 'main/register.html', {'form': form, 'title':'reqister here'})
+    return render(request, 'main/register.html', {'form': form, 'title':'Register Error'})
 
     ################ login forms###################################################
 def Login(request):
@@ -797,7 +806,7 @@ def Login(request):
             messages.success(request, f' wecome {username} !!')
             return redirect('home')
         else:
-            messages.info(request, f'account done not exit plz sign in')
+            messages.info(request, f'Account does not exit plz [Sign Up]')
     form = AuthenticationForm()
     return render(request, 'main/login.html', {'form':form, 'title':'log in'})
 
