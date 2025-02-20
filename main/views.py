@@ -135,6 +135,10 @@ def IsOTM(last, strike, pnc):
     else:
         return False
 def adjValue(last, strike, pnc, oprice):
+    logging.debug(f"adjValue(last={last}, strike={strike}, pnc={pnc}, oprice={oprice})")
+    print("Strike type: ", type(strike))
+    if oprice is None:
+        return 0
     if pnc=='P':
         return oprice-(strike-last)
     else:
@@ -165,8 +169,9 @@ def etfoptionsmon(request):
             # df.at[ix, 'Last'] = last
             df.at[ix, 'Stop%'] = getStopPercent(row.Symbol, row.Stop, row.Last, row.PnC)
     df['adjOPrice'] = df.apply(lambda row: adjValue(row['Last'],row['H_Strike'],row['PnC'], row['OPrice']) if IsOTM(row['Last'], row['H_Strike'], row['PnC']) else row['OPrice'], axis=1)
-    df['AdjReward%'] = round(df['adjOPrice']/df['H_Strike']*100, 2)
-    df['Reward%'] = round(df['OPrice']/df['H_Strike']*100, 2)
+    df['AdjReward%'] = round(df['adjOPrice']/df['H_Strike']*100.0, 2)
+    df['OPrice'] = df['OPrice'].astype(float)
+    df['Reward%'] = round(df['OPrice']/df['H_Strike']*100.0, 2)
 
     df = df[showCol]
     js_str = df.to_json(orient='records')
